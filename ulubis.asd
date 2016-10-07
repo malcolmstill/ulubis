@@ -5,17 +5,15 @@
   :author "Malcolm Still"
   :license "Specify license here"
   :depends-on (#:cffi
+	       #:swank
 	       #:cepl
 	       #:easing
-	    ;;   #:cl-drm
-	    ;;   #:cl-gbm
-	    ;;   #:cl-egl
 	       #:cl-xkb
                #:cl-wayland)
   :serial t
-  :components ((:file "package")
-	       (:file "backend")
+  :components ((:file "backend")
 	       (:file "animation")
+	       (:file "package")
 	       (:file "client")
 	       (:file "compositor")
 	       (:file "render")
