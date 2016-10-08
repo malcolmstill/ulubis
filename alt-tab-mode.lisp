@@ -8,25 +8,29 @@
    (surfaces :accessor surfaces :initarg :surfaces :initform nil)
    (y-angle :accessor y-angle :initarg :y-angle :initform 0.0)
    (x-angle :accessor x-angle :initarg :x-angle :initform 0.0)
-   (animation :accessor animation :initarg :animation :initform nil)
+   (iso-animation :accessor iso-animation :initarg :iso-animation :initform nil)
    (opacity :accessor opacity :initarg :opacity :initform 1.0)))
 
+(defun enter-animation (mode)
+  (parallel-animation nil
+   (animation :duration 250 :target mode :property 'x-angle :to (/ 3.14159 4) :easing-fn 'easing:linear)
+   (animation :duration 250 :target mode :property 'y-angle :to (/ 3.14159 4) :easing-fn 'easing:linear)
+   (animation :duration 250 :target mode :property 'opacity :to 0.3 :easing-fn 'easing:linear)))
+
+(defun exit-animation (mode)
+  (parallel-animation (lambda () (pop-mode))
+   (animation :duration 250 :target mode :property 'x-angle :to 0.0 :easing-fn 'easing:linear)
+   (animation :duration 250 :target mode :property 'y-angle :to 0.0 :easing-fn 'easing:linear)
+   (animation :duration 250 :target mode :property 'opacity :to 1.0 :easing-fn 'easing:linear)))
+
 (defmethod init-mode ((mode alt-tab-mode))
-  (format t "Hello~%")
   (setf (surfaces mode) (remove-if (lambda (surface)
 				     (or (not (texture surface))
 					 (cursor? surface)))
 				   (surfaces *compositor*)))
   (setf (projection mode) (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1000 -1000))
-  (let ((animate-x (make-instance 'animation :duration 250 :target mode :property 'x-angle :to (/ 3.14159 4) :easing-fn 'easing:linear))
-	(animate-y (make-instance 'animation :duration 250 :target mode :property 'y-angle :to (/ 3.14159 4) :easing-fn 'easing:linear))
-	(animate-opacity (make-instance 'animation :duration 250 :target mode :property 'opacity :to 0.3 :easing-fn 'easing:linear)))
-    (setf (animation mode) (make-instance 'parallel-animation
-					  :animations (list animate-x
-							    animate-y
-							    animate-opacity)))
-    (describe (animation mode))
-    (start-animation (animation mode))))
+  (setf (iso-animation mode) (enter-animation mode))
+  (start-animation (iso-animation mode)))
 
 (defmethod mouse-motion-handler ((mode alt-tab-mode) x y)
   )
@@ -41,16 +45,12 @@
 	     
   (when (zerop (logand 4 (mods-depressed *compositor*))) ;; User has released Ctrl...raise and activate selected surface and pop-mode
     (setf (render-needed *compositor*) t)
-    (when (animation mode)
-      (remove-animation (animation mode)))
+    (when (iso-animation mode)
+      (stop-animation (iso-animation mode)))
     (let ((selected-surface (nth (selection mode) (surfaces mode))))
       (raise-surface selected-surface *compositor*)
       (activate-surface selected-surface))
-    (let ((animate-x (make-instance 'animation :duration 250 :target mode :property 'x-angle :to 0.0 :easing-fn 'easing:linear))
-	  (animate-y (make-instance 'animation :duration 250 :target mode :property 'y-angle :to 0.0 :easing-fn 'easing:linear))
-	  (animate-opacity (make-instance 'animation :duration 250 :target mode :property 'opacity :to 1.0 :easing-fn 'easing:linear)))
-      (start-animation (make-instance 'parallel-animation :animations (list animate-x animate-y animate-opacity) :finished-fn (lambda ()
-																(pop-mode)))))))
+    (start-animation (exit-animation mode))))
 
 (defun rot-y (angle)
   (m4:rotation-from-axis-angle (v! 0 1 0) angle))
@@ -58,8 +58,8 @@
 (defun rot-x (angle)
   (m4:rotation-from-axis-angle (v! 1 0 0) angle))
 
-(defun-g alt-tab-vertex-shader ((vert g-pt) &uniform (ortho :mat4) (rot-y :mat4) (rot-x :mat4))
-  (values (* rot-x (* rot-y (* ortho (v! (pos vert) 1))))
+(defun-g alt-tab-vertex-shader ((vert g-pt) &uniform (surface-scale :mat4) (surface-translate :mat4) (ortho :mat4) (rot-y :mat4) (rot-x :mat4))
+  (values (* rot-x (* rot-y (* ortho (* surface-translate (* surface-scale (v! (pos vert) 1))))))
 	  (:smooth (tex vert))))
 
 (defun-g alt-tab-frag ((tex-coord :vec2) &uniform (texture :sampler-2d) (alpha :float))
@@ -82,6 +82,8 @@
     (mapcar (lambda (surface o)
 	      (with-surface (vs tex mode surface :z (+ (* (- o) spacing) 100))
 		(map-g #'alt-tab-pipeline vs
+		       :surface-scale (m4:scale (v! (scale-x surface) (scale-y surface) 1.0))
+		       :surface-translate (m4:translation (v! (x surface) (y surface) 0.0))
 		       :ortho (projection mode)
 		       :rot-y (rot-y (y-angle mode))
 		       :rot-x (rot-x (x-angle mode))

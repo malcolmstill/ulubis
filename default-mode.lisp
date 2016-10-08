@@ -9,7 +9,9 @@
    (focus-follows-mouse :accessor focus-follows-mouse :initarg :focus-follows-mouse :initform nil)))
 
 (defmethod init-mode ((mode default-mode))
-  (setf (projection mode) (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1 -1)))
+  (setf (projection mode) (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1 -1))
+  (map-g #'default-pipeline nil)
+  (setf (render-needed *compositor*) t))
 
 (defmethod mouse-motion-handler ((mode default-mode) x y)
   (let ((delta-x (- x (pointer-x *compositor*)))
@@ -57,10 +59,23 @@
        (when (accepts-pointer-events? (pointer-surface *compositor*))
 	 (wl-pointer-send-motion (->pointer (client (pointer-surface *compositor*)))
 				 (get-internal-real-time)
-				 (* 256 (- x (x (pointer-surface *compositor*))))
-				 (* 256 (- y (y (pointer-surface *compositor*)))))
+				 (round (* 256 (- x (x (pointer-surface *compositor*)))))
+				 (round (* 256 (- y (y (pointer-surface *compositor*))))))
 	 (wl-pointer-send-frame (->pointer (client (pointer-surface *compositor*))))
 	 )))))
+
+(defun pulse-animation (surface)
+  (sequential-animation nil
+   (parallel-animation nil
+    (animation :duration 100 :easing-fn 'easing:linear :to 1.05 :target surface :property 'scale-x)
+    (animation :duration 100 :easing-fn 'easing:linear :to 1.05 :target surface :property 'scale-y)
+    (animation :duration 100 :easing-fn 'easing:linear :to (+ (x surface) (- (* (width surface) 0.05 0.5))) :target surface :property 'x)
+    (animation :duration 100 :easing-fn 'easing:linear :to (+ (y surface) (- (* (height surface) 0.05  0.5))) :target surface :property 'y))
+   (parallel-animation nil
+    (animation :duration 100 :easing-fn 'easing:linear :to 1.0 :target surface :property 'scale-x)
+    (animation :duration 100 :easing-fn 'easing:linear :to 1.0 :target surface :property 'scale-y)
+    (animation :duration 100 :easing-fn 'easing:linear :to (x surface) :target surface :property 'x)
+    (animation :duration 100 :easing-fn 'easing:linear :to (y surface) :target surface :property 'y))))
 
 (defmethod mouse-button-handler ((mode default-mode) button state)
   ;; 1. Change (possibly) the active surface
@@ -68,23 +83,7 @@
       (let ((surface (surface-under-pointer (pointer-x *compositor*) (pointer-y *compositor*) *compositor*)))
 	;; When we click on a client which isn't the first client
 	(when (and surface (not (equalp surface (active-surface *compositor*))))
-	  (start-animation
-	   (make-instance 'sequential-animation
-			  :animations (list
-				       (make-instance 'parallel-animation 
-						      :animations (list
-								   (make-instance 'animation :duration 100 :easing-fn 'easing:linear
-										  :to 1.05 :target surface :property 'scale-x)
-								   (make-instance 'animation :duration 100 :easing-fn 'easing:linear
-										  :to 1.05 :target surface :property 'scale-y)))
-				       (make-instance 'parallel-animation 
-						      :animations (list
-								   (make-instance 'animation :duration 100 :easing-fn 'easing:linear
-										  :to 1.0 :target surface :property 'scale-x)
-								   (make-instance 'animation :duration 100 :easing-fn 'easing:linear
-										  :to 1.0 :target surface :property 'scale-y))))))
-	  
-	  )
+	  (start-animation (pulse-animation surface)))
 	(activate-surface surface)
 	(when surface
 	  (raise-surface surface *compositor*)
@@ -114,8 +113,7 @@
 								:pointer-x (pointer-x *compositor*)
 								:pointer-y (pointer-y *compositor*)
 								:surface-width width
-								:surface-height height
-								))))))
+								:surface-height height))))))
 
   (when (and (resizing-surface *compositor*) (= button #x110) (= state 0))
     (setf (resizing-surface *compositor*) nil))
@@ -156,7 +154,15 @@
 				  (mods-latched *compositor*)
 				  (mods-locked *compositor*)
 				  (mods-group *compositor*)))))
-    
+
+(defmethod first-commit ((mode default-mode) surface)
+  (start-animation (animation
+		    :target surface
+		    :property 'opacity
+		    :from 0.0 :to 1.0
+		    :duration 250
+		    :easing-fn 'easing:linear)))
+
 (def-g-> default-pipeline ()
   #'default-vertex-shader #'default-fragment-shader)
 
@@ -168,14 +174,8 @@
 	      (with-surface (vertex-stream tex mode surface)
 		  (map-g #'default-pipeline vertex-stream
 			 :ortho (projection mode)
-			 :surface-scale (m4:scale (v! (scale-x surface)
-						      (scale-y surface)
-						      1.0))
-			 :surface-translate (m4:translation
-					     (v!
-					      (+ (x surface) (- (* (width surface) (- (scale-x surface) 1.0) 0.5)))
-					      (+ (y surface) (- (* (height surface) (- (scale-y surface) 1.0) 0.5)))
-					      0.0))
+			 :surface-scale (m4:scale (v! (scale-x surface) (scale-y surface) 1.0))
+			 :surface-translate (m4:translation (v! (x surface) (y surface) 0.0))
 			 :texture (sample tex)
-			 :alpha 1.0))))
+			 :alpha (opacity surface)))))
 	  (reverse (surfaces *compositor*))))

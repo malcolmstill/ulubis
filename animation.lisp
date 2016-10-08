@@ -6,7 +6,7 @@
    sequential-animation
    parallel-animation
    update-animations
-   remove-animation
+   stop-animation
    start-animation
    target
    property
@@ -32,6 +32,19 @@
    (toplevel? :accessor toplevel? :initarg :toplevel? :initform t)
    (integer? :accessor integer? :initarg :integer? :initform nil)
    (finished-fn :accessor finished-fn :initarg :finished-fn :initform nil)))
+
+(defun animation (&key target property from to easing-fn (start-time 0) (duration 0) (toplevel? t) integer? finished-fn)
+  (make-instance 'animation
+		 :target target
+		 :property property
+		 :from from
+		 :to to
+		 :easing-fn easing-fn
+		 :start-time start-time
+		 :duration duration
+		 :toplevel? toplevel?
+		 :integer? integer?
+		 :finished-fn finished-fn))
 
 (defun normalise-time (time start-time duration)
   (/ (- time start-time) duration))
@@ -83,10 +96,13 @@ etc.
 	   (when finished-fn
 	     (funcall finished-fn))
 	   (when toplevel?
-	     (remove-animation animation)))))))
+	     (stop-animation animation)))))))
 
 (defclass parallel-animation (animation)
   ((animations :accessor animations :initarg :animations :initform nil)))
+
+(defun parallel-animation (finished-fn &rest animations)
+  (make-instance 'parallel-animation :finished-fn finished-fn :animations animations))
 
 (defmethod initialize-instance :after ((animation parallel-animation) &key)
   (when (or (from animation) (to animation))
@@ -110,12 +126,15 @@ etc.
 	  (when (finished-fn animation) ;; otherwise all are finished 
 	    (funcall (finished-fn animation)))
 	  (when (toplevel? animation)
-	    (remove-animation animation))
+	    (stop-animation animation))
 	  nil))))
 
 (defclass sequential-animation (animation)
   ((animations :accessor animations :initarg :animations :initform nil)
    (remaining :accessor remaining :initarg :remaining :initform nil)))
+
+(defun sequential-animation (finished-fn &rest animations)
+  (make-instance 'sequential-animation :finished-fn finished-fn :animations animations))
 
 (defmethod initialize-instance :after ((animation sequential-animation) &key)
   (when (or (from animation) (to animation))
@@ -144,10 +163,10 @@ etc.
 		  (when finished-fn ;; No more animations to run
 		    (funcall finished-fn))
 		  (when toplevel?
-		    (remove-animation animation)))))
+		    (stop-animation animation)))))
 	  t))))
 
-(defun remove-animation (animation)
+(defun stop-animation (animation)
   (setf *animations* (remove animation *animations*)))
 
 (defun update-animations (callback)

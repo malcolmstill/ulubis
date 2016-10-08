@@ -11,6 +11,8 @@
 	   (surface (find-surface ->surface *compositor*)))
       (setf (committed surface) t)
       (create-texture surface)
+      (when (first-commit? surface)
+	(first-commit (current-mode) surface))
       (setf (render-needed *compositor*) t)))
   
   (defcallback my-attach :void

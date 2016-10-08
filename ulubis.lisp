@@ -5,19 +5,19 @@
 
 (defun main-loop (event-loop)
   (if (running *compositor*)
-      (progn
-	(wl-event-loop-dispatch event-loop 16)
-	(wl-display-flush-clients (display *compositor*))
-	(process-events (backend *compositor*))
-	(animation::update-animations (lambda ()
-					(setf (render-needed *compositor*) t)))
-	(when (render-needed *compositor*)
-	  (render (current-mode))
-	  (swap-buffers (backend *compositor*))
-	  (setf (render-needed *compositor*) nil))
-	(main-loop event-loop))
-      nil))
-
+       (progn
+	 (wl-event-loop-dispatch event-loop 16)
+	 (wl-display-flush-clients (display *compositor*))
+	 (process-events (backend *compositor*))
+	 (animation::update-animations (lambda ()
+					 (setf (render-needed *compositor*) t)))
+	 (when (render-needed *compositor*)
+	   (render (current-mode))
+	   (swap-buffers (backend *compositor*))
+	   (setf (render-needed *compositor*) nil))
+	 (main-loop event-loop))
+       nil))
+  
 (defun resize-surface-relative (surface delta-x delta-y)
   (with-slots (x y ->xdg-surface input-region) surface
     (let ((width (width (first (last (rects input-region)))))
