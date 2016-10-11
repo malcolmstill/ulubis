@@ -30,8 +30,8 @@
 	  (when (equalp surface (active-surface *compositor*))
 	    (setf (mem-aref (wl-array-add array 4) :int32) 4))
 	  (xdg-surface-send-configure (->xdg-surface surface)
-				      (+ width delta-x)
-				      (+ height delta-y)
+				      (round (+ width delta-x))
+				      (round (+ height delta-y))
 				      array
 				      (get-internal-real-time))
 	  (wl-array-release array)
@@ -46,8 +46,8 @@
 	(when (equalp surface (active-surface *compositor*))
 	  (setf (mem-aref (wl-array-add array 4) :int32) 4))
 	(xdg-surface-send-configure (->xdg-surface surface)
-				    width
-				    height
+				    (round width)
+				    (round height)
 				    array
 				    (get-internal-real-time))
 	(wl-array-release array)
@@ -92,25 +92,31 @@
 	 (wl-array-release array)
 	 (foreign-free array))))))
 
-(defun call-mouse-motion-handler (x y)
-  (mouse-motion-handler (current-mode) x y))
+(defun call-mouse-motion-handler (time x y)
+  (when (show-cursor *compositor*)
+    (setf (render-needed *compositor*) t))
+  (mouse-motion-handler (current-mode) time x y))
 
 ;; Should be able to have "active" window without raising (focus follows mouse)
-(defun call-mouse-button-handler (button state)
-  (mouse-button-handler (current-mode) button state))
+(defun call-mouse-button-handler (time button state)
+  (mouse-button-handler (current-mode) time button state))
 
 (defun window-event-handler ()
   (setf (render-needed *compositor*) t))
 
-(defun call-keyboard-handler (key state mods)
+(defun call-keyboard-handler (time key state)
   ;;(format t "call-keyboard-handler ~A ~A ~A~%" key state mods)
-  (when mods
-    (setf (mods-depressed *compositor*) (first mods))
-    (setf (mods-latched *compositor*) (second mods))
-    (setf (mods-locked *compositor*) (third mods))
-    (setf (mods-group *compositor*) (fourth mods)))
+  (xkb:xkb-state-update-key (xkb-state *compositor*) (+ key 8) state)
+  (setf (mods-depressed *compositor*) (xkb:xkb-state-serialize-mods
+				       (xkb-state *compositor*) 1))
+  (setf (mods-latched *compositor*) (xkb:xkb-state-serialize-mods
+				       (xkb-state *compositor*) 2))
+  (setf (mods-locked *compositor*) (xkb:xkb-state-serialize-mods
+				       (xkb-state *compositor*) 4))
+  (setf (mods-group *compositor*) (xkb:xkb-state-serialize-layout
+				       (xkb-state *compositor*) 64))
   (when (and (numberp key) (numberp state))
-    (keyboard-handler (current-mode) key state mods)))
+    (keyboard-handler (current-mode) time key state)))
 
 (defun initialise ()
   (unwind-protect
@@ -125,13 +131,14 @@
 	 
 	 ;; Make our compositor class
 	 (setf *compositor* (make-instance 'compositor))
-	 (setf (screen-width *compositor*) 1200)
-	 (setf (screen-height *compositor*) 800)
+	 (setf (screen-width *compositor*) 1440)
+	 (setf (screen-height *compositor*) 900)
 	 (setf (render-fn *compositor*) 'render)
+	 (format t "Made compositor object~%")
 	 
-	 ;; Initialise SDL2 backend
+	 ;; Initialise backend
+	 (format t "Initialising backend: ~A~%" backend-name)
 	 (setf (backend *compositor*) (make-instance backend-name))
-	 (format t "Initialising backend~%")
 	 (initialise-backend (backend *compositor*) (screen-width *compositor*) (screen-height *compositor*))
 	 (format t "Backend initialised~%")
 
@@ -187,10 +194,10 @@
 	 (main-loop (wl-display-get-event-loop (display *compositor*))))
     (when (display *compositor*)
       (wl-display-destroy (display *compositor*))
-      (setf (display *compositor*) nil)
-      (destroy-backend (backend *compositor*))
-      (setf *compositor* nil)
-      (format t "Exit compositor"))))
+      (setf (display *compositor*) nil))
+    (destroy-backend (backend *compositor*))
+    (setf *compositor* nil)
+    (format t "Exit compositor")))
 
 (defun run-compositor ()
   (initialise))

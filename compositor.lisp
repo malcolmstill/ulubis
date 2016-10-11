@@ -18,15 +18,40 @@
    (resizing-surface :accessor resizing-surface :initarg :resizing-surface :initform nil)
    (pointer-surface :accessor pointer-surface :initarg :pointer-surface :initform nil)
    (cursor-surface :accessor cursor-surface :initarg :cursor-surface :initform nil)
+   (show-cursor :accessor show-cursor :initarg :show-cursor :initform t)
    (pointer-x :accessor pointer-x :initarg :pointer-x :initform 0)
    (pointer-y :accessor pointer-y :initarg :pointer-y :initform 0)
    (data-devices :accessor data-devices :initarg :data-devices :initform nil)
-   (render-needed :accessor render-needed :initarg render-needed :initform nil)
+   (render-needed :accessor render-needed :initarg :render-needed :initform nil)
+   (xkb-context :accessor xkb-context :initarg :xkb-context :initform nil)
+   (xkb-state :accessor xkb-state :initarg :xkb-state :initform nil)
+   (xkb-keymap :accessor xkb-keymap :initarg :xkb-keymap :initform nil)
    (mods-depressed :accessor mods-depressed :initarg :mods-depressed :initform 0)
    (mods-latched :accessor mods-latched :initarg :mods-latched :initform 0)
    (mods-locked :accessor mods-locked :initarg :mods-locked :initform 0)
    (mods-group :accessor mods-group :initarg :mods-group :initform 0)))
-   
+
+(defmethod initialize-instance :after ((compositor compositor) &key)
+  (setf (xkb-context compositor) (xkb:xkb-context-new 0))
+  (setf (xkb-keymap compositor) (xkb:new-keymap-from-names (xkb-context compositor)
+						       "evdev"
+						       "chromebook"
+						       "us"
+						       ""
+						       ""))
+  (setf (xkb-state compositor) (xkb:xkb-state-new (xkb-keymap compositor))))
+
+(defun get-keymap (compositor)
+  (let* ((string (xkb:xkb-keymap-get-as-string (xkb-keymap compositor) 1)) ;; 1 == XKB_KEYMAP_FORMAT_TEXT_V!
+	 (size (+ (length string) 1))
+	 (xdg-runtime-dir (sb-posix:getenv "XDG_RUNTIME_DIR")))
+    (multiple-value-bind (fd name) (sb-posix:mkstemp (concatenate 'string xdg-runtime-dir "/XXXXXXXX"))
+      (sb-posix:ftruncate fd size)
+      (let ((map (sb-posix:mmap nil size (logxor sb-posix:prot-read sb-posix:prot-write) sb-posix:map-shared fd 0)))
+	(lisp-string-to-foreign string map size)
+	(sb-posix:munmap map size)
+	(values fd size)))))
+
 (defun find-client (client-pointer compositor)
   (find-if (lambda (client)
 	     (and (pointerp (->client client)) (pointer-eq (->client client) client-pointer)))

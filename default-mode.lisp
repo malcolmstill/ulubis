@@ -13,12 +13,12 @@
   (map-g #'default-pipeline nil)
   (setf (render-needed *compositor*) t))
 
-(defmethod mouse-motion-handler ((mode default-mode) x y)
-  (let ((delta-x (- x (pointer-x *compositor*)))
-	(delta-y (- y (pointer-y *compositor*))))
-    ;; Update the pointer location
-    (setf (pointer-x *compositor*) x)
-    (setf (pointer-y *compositor*) y)
+(defmethod mouse-motion-handler ((mode default-mode) time delta-x delta-y)
+  ;; Update the pointer location
+  (incf (pointer-x *compositor*) delta-x)
+  (incf (pointer-y *compositor*) delta-y)
+  (let ((x (pointer-x *compositor*))
+	(y (pointer-y *compositor*)))
     (when (cursor-surface *compositor*)
       (setf (render-needed *compositor*) t))
     (cond
@@ -47,18 +47,18 @@
 				  (->surface (pointer-surface *compositor*))))
 	 (setf (pointer-surface *compositor*) (surface-under-pointer x y *compositor*))
 	 (when (focus-follows-mouse mode)
-	     (activate-surface (pointer-surface *compositor*)))
+	   (activate-surface (pointer-surface *compositor*)))
 	 (when (accepts-pointer-events? (pointer-surface *compositor*))
 	   (wl-pointer-send-enter (->pointer (client (pointer-surface *compositor*)))
 				  0
 				  (->surface (pointer-surface *compositor*))
-				  (* 256 (- x (x (pointer-surface *compositor*))))
-				  (* 256 (- y (y (pointer-surface *compositor*))))))))
+				  (round (* 256 (- x (x (pointer-surface *compositor*)))))
+				  (round (* 256 (- y (y (pointer-surface *compositor*)))))))))
       ;; 3. Pointer is over previous surface
       ((equalp (pointer-surface *compositor*) (surface-under-pointer x y *compositor*))
        (when (accepts-pointer-events? (pointer-surface *compositor*))
 	 (wl-pointer-send-motion (->pointer (client (pointer-surface *compositor*)))
-				 (get-internal-real-time)
+				 time
 				 (round (* 256 (- x (x (pointer-surface *compositor*)))))
 				 (round (* 256 (- y (y (pointer-surface *compositor*))))))
 	 (wl-pointer-send-frame (->pointer (client (pointer-surface *compositor*))))
@@ -77,7 +77,7 @@
     (animation :duration 100 :easing-fn 'easing:linear :to (x surface) :target surface :property 'x)
     (animation :duration 100 :easing-fn 'easing:linear :to (y surface) :target surface :property 'y))))
 
-(defmethod mouse-button-handler ((mode default-mode) button state)
+(defmethod mouse-button-handler ((mode default-mode) time button state)
   ;; 1. Change (possibly) the active surface
   (when (and (= button #x110) (= state 1) (not (= 4 (mods-depressed *compositor*))))
       (let ((surface (surface-under-pointer (pointer-x *compositor*) (pointer-y *compositor*) *compositor*)))
@@ -128,11 +128,11 @@
       (when (accepts-pointer-events? surface)
 	(wl-pointer-send-button (->pointer (client surface))
 				0
-				(get-internal-real-time)
+				time
 				button
 				state)))))
 
-(defmethod keyboard-handler ((mode default-mode) key state mods)
+(defmethod keyboard-handler ((mode default-mode) time key state)
   ;; Control tab
   (when (and (= (mods-depressed *compositor*) 4) (= state 1) (= key 15))
     (push-mode (make-instance 'alt-tab-mode))
@@ -147,8 +147,8 @@
   
   (let ((surface (active-surface *compositor*)))
     (when (and surface key (->keyboard (client surface)))
-      (wl-keyboard-send-key (->keyboard (client surface)) 0 (get-internal-real-time) key state))
-    (when (and surface mods (->keyboard (client surface)))
+      (wl-keyboard-send-key (->keyboard (client surface)) 0 time key state))
+    (when (and surface (->keyboard (client surface)))
       (wl-keyboard-send-modifiers (->keyboard (client surface)) 0
 				  (mods-depressed *compositor*)
 				  (mods-latched *compositor*)
@@ -178,4 +178,7 @@
 			 :surface-translate (m4:translation (v! (x surface) (y surface) 0.0))
 			 :texture (sample tex)
 			 :alpha (opacity surface)))))
-	  (reverse (surfaces *compositor*))))
+	  (reverse (surfaces *compositor*)))
+  (draw-cursor (pointer-x *compositor*)
+	       (pointer-y *compositor*)
+	       (projection mode)))

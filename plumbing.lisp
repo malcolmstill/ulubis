@@ -277,7 +277,7 @@
        (null-pointer)
        (null-pointer))
       (setf (->keyboard (find-client client *compositor*)) keyboard)
-      (multiple-value-bind (fd size) (get-keymap (backend *compositor*))
+      (multiple-value-bind (fd size) (get-keymap *compositor*)
 	(wl-keyboard-send-keymap keyboard 1 fd size))))
   
   (defparameter seat-implementation (implement-wl-seat

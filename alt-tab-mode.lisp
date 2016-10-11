@@ -32,13 +32,13 @@
   (setf (iso-animation mode) (enter-animation mode))
   (start-animation (iso-animation mode)))
 
-(defmethod mouse-motion-handler ((mode alt-tab-mode) x y)
+(defmethod mouse-motion-handler ((mode alt-tab-mode) time delta-x delta-y)
   )
 
-(defmethod mouse-button-handler ((mode alt-tab-mode) button state)
+(defmethod mouse-button-handler ((mode alt-tab-mode) time button state)
   )
 
-(defmethod keyboard-handler ((mode alt-tab-mode) key state mods)
+(defmethod keyboard-handler ((mode alt-tab-mode) time key state)
   (when (and (= key 15) (= state 1) (> (length (surfaces mode)) 0))  ;; User has pressed tab...select next window
     (setf (selection mode) (mod (incf (selection mode)) (length (surfaces mode))))
     (setf (render-needed *compositor*) t))

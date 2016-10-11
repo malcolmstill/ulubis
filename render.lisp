@@ -124,3 +124,26 @@
 (defun-g default-fragment-shader ((tex-coord :vec2) &uniform (texture :sampler-2d) (alpha :float))
   (v! (s~ (texture texture tex-coord) :xyz)
       (* alpha (s~ (texture texture tex-coord) :w))))
+
+(defun-g cursor-vertex-shader ((vert :vec3) &uniform (ortho :mat4))
+  (values (* ortho (v! vert 1))
+	  (v! 1 1 1 1)))
+
+(defun-g cursor-fragment-shader ((color :vec4))
+  color)
+
+(def-g-> cursor-pipeline ()
+  #'cursor-vertex-shader #'cursor-fragment-shader)
+
+(defun draw-cursor (x y ortho)
+  (let* ((array (make-gpu-array
+		 (list (v! x y 0)
+		       (v! x (+ y 32) 0)
+		       (v! (+ x 16) (+ y 24) 0))
+		 :dimensions 3 :element-type :vec3))
+	 (vertex-stream (make-buffer-stream array :retain-arrays t)))
+    (map-g #'cursor-pipeline vertex-stream
+	   :ortho ortho)
+    (free vertex-stream)
+    (free array)
+    (setf (render-needed *compositor*) t)))
