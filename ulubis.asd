@@ -1,9 +1,9 @@
 ;;;; ulubis.asd
 
 (asdf:defsystem #:ulubis
-  :description "Describe ulubis here"
+  :description "A Common Lisp Wayland compositor"
   :author "Malcolm Still"
-  :license "Specify license here"
+  :license "BSD3"
   :depends-on (#:cffi
 	       #:swank
 	       #:cepl
