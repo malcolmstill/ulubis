@@ -22,7 +22,7 @@ The DRM/GBM backend depends on:
 - [cl-gbm](https://github.com/malcolmstill/cl-gbm)
 - [cl-egl](https://github.com/malcolmstill/cl-egl)
 - [cepl.drm-gbm](https://github.com/malcolmstill/cepl.drm-gbm)
-- [cl-libinput](https://github.com/malcolmstill/cl-egl) (currently a work in progress)
+- [cl-libinput](https://github.com/malcolmstill/cl-libinput)
 
 The dependencies for the SDL2 backend are:
 - SDL2
