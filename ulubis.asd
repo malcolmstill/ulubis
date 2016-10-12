@@ -3,7 +3,7 @@
 (asdf:defsystem #:ulubis
   :description "A Common Lisp Wayland compositor"
   :author "Malcolm Still"
-  :license "BSD3"
+  :license "BSD 3-Clause"
   :depends-on (#:cffi
 	       #:swank
 	       #:cepl
