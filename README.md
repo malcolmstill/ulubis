@@ -28,18 +28,6 @@ The dependencies for the SDL2 backend are:
 - SDL2
 - [cepl.sdl2](https://github.com/cbaggers/cepl.sdl2)
 
-## Installation of xdg-shell helper
-
-Currently there is a small helper library for xdg-shell which needs to be installed to `/usr/lib/` which can be done as follows:
-```
-> (ql:quickload :cl-wayland)
-```
-Navigate to the `cl-wayland` directory and run
-```
-> sh build-xdg-shell-shared-library.sh 
-```
-And move the generated shared library into `/usr/lib/`. In future `generate-bindings.lisp` will generate the small amount of code required.
-
 ## Installation of ulubis
 
 Installation in the future (when everything is available on quicklisp) will be
@@ -57,3 +45,48 @@ or
 ```
 which will generate an `ulubis` and `ulubis-sdl` executable in the build directory.
 
+## Running ulubis
+
+To run `ulubis` the user must be a member of the `input` and `video` groups. Navigate to a virtual terminal and run `ulubis`.
+
+For the SDL2 backend simply run `ulubis-sdl` when in X.
+
+## Configuration
+
+Ulubis looks for the file `~/.ulubis.lisp` and loads it if it exists.
+
+An example configuration is as follows:
+
+```
+(in-package :ulubis)
+
+;; Load swank so we can slime-connect
+(swank-loader:init)
+(swank:create-server :port 4005 :dont-close t)
+(swank:set-package "ULUBIS")
+
+;; Set resolution based on backend
+(if (equal backend-name 'ulubis-backend::backend-drm-gbm)
+    (progn
+      (setf (screen-width *compositor*) 1440)
+      (setf (screen-height *compositor*) 900))
+    (progn
+      (setf (screen-width *compositor*) 1200)
+      (setf (screen-height *compositor*) 800)))
+
+;; Set keymap in RMLVO format
+(set-keymap *compositor*
+	    "evdev"
+	    "apple"
+	    "gb"
+	    ""
+	    "")
+
+;; Only for DRM/GBM backend, set the device paths
+;; for libinput (on my machine event5 is the keboard
+;; and event8 is the mouse)
+(setf (devices *compositor*) (list
+			      "/dev/input/event5"
+			      "/dev/input/event8"))
+
+```

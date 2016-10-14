@@ -5,10 +5,11 @@
   ((running :accessor running :initarg :running :initform t)
    (backend :accessor backend :initarg :backend :initform nil)
    (display :accessor display :initarg :display :initform nil)
+   (devices :accessor devices :initarg :devices :initform nil)
    (->output :accessor ->output :initarg :->output :initform nil)
    (event-loop :accessor event-loop :initarg :event-loop :initform nil)
-   (screen-width :accessor screen-width :initarg :screen-width :initform 0)
-   (screen-height :accessor screen-height :initarg :screen-height :initform 0)
+   (screen-width :accessor screen-width :initarg :screen-width :initform 640)
+   (screen-height :accessor screen-height :initarg :screen-height :initform 480)
    (render-fn :accessor render-fn :initarg :render-fn :initform nil)
    (modes :accessor modes :initarg :modes :initform nil)
    (surfaces :accessor surfaces :initarg :surfaces :initform nil)
@@ -26,6 +27,8 @@
    (xkb-context :accessor xkb-context :initarg :xkb-context :initform nil)
    (xkb-state :accessor xkb-state :initarg :xkb-state :initform nil)
    (xkb-keymap :accessor xkb-keymap :initarg :xkb-keymap :initform nil)
+   ;;(xkb-rmlvo :accessor xkb-rmlvo :initarg :xkb-rmlvo :initform
+   ;;(list "evdev" "apple" "gb" "" ""))
    (mods-depressed :accessor mods-depressed :initarg :mods-depressed :initform 0)
    (mods-latched :accessor mods-latched :initarg :mods-latched :initform 0)
    (mods-locked :accessor mods-locked :initarg :mods-locked :initform 0)
@@ -33,12 +36,24 @@
 
 (defmethod initialize-instance :after ((compositor compositor) &key)
   (setf (xkb-context compositor) (xkb:xkb-context-new 0))
-  (setf (xkb-keymap compositor) (xkb:new-keymap-from-names (xkb-context compositor)
-						       "evdev"
-						       "chromebook"
-						       "us"
-						       ""
-						       ""))
+  (setf (xkb-keymap compositor) (xkb:new-keymap-from-names
+				 (xkb-context compositor)
+				 "evdev"
+				 "apple"
+				 "gb"
+				 ""
+				 ""))
+  (setf (xkb-state compositor) (xkb:xkb-state-new (xkb-keymap compositor))))
+	   
+(defun set-keymap (compositor r m l v o)
+  (setf (xkb-context compositor) (xkb:xkb-context-new 0))
+  (setf (xkb-keymap compositor) (xkb:new-keymap-from-names
+				 (xkb-context compositor)
+				 r ;;"evdev"
+				 m ;;"apple"
+				 l ;;"gb"
+				 v ;;""
+				 o))
   (setf (xkb-state compositor) (xkb:xkb-state-new (xkb-keymap compositor))))
 
 (defun get-keymap (compositor)

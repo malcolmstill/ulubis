@@ -133,6 +133,10 @@
 				state)))))
 
 (defmethod keyboard-handler ((mode default-mode) time key state)
+
+  (when (and (= (mods-depressed *compositor*) 4) (= state 1) (= key 16))
+    (sb-ext:exit))
+  
   ;; Control tab
   (when (and (= (mods-depressed *compositor*) 4) (= state 1) (= key 15))
     (push-mode (make-instance 'alt-tab-mode))

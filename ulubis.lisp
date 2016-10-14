@@ -124,22 +124,21 @@
 	 #+sbcl
 	 (sb-int:set-floating-point-modes :traps nil)
 	 
-	 (swank-loader:init)
-	 (swank:create-server :port 4005
-			      :dont-close t)
-	 (swank:set-package "ULUBIS")
-	 
 	 ;; Make our compositor class
 	 (setf *compositor* (make-instance 'compositor))
-	 (setf (screen-width *compositor*) 1440)
-	 (setf (screen-height *compositor*) 900)
 	 (setf (render-fn *compositor*) 'render)
 	 (format t "Made compositor object~%")
+
+	 (when (probe-file "~/.ulubis.lisp")
+	   (load "~/.ulubis.lisp"))
 	 
 	 ;; Initialise backend
 	 (format t "Initialising backend: ~A~%" backend-name)
 	 (setf (backend *compositor*) (make-instance backend-name))
-	 (initialise-backend (backend *compositor*) (screen-width *compositor*) (screen-height *compositor*))
+	 (initialise-backend (backend *compositor*)
+			     (screen-width *compositor*)
+			     (screen-height *compositor*)
+			     (devices *compositor*))
 	 (format t "Backend initialised~%")
 
 	 ;; Initialise our default mode
