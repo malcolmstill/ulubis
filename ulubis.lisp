@@ -6,7 +6,7 @@
 (defun main-loop (event-loop)
   (if (running *compositor*)
        (progn
-	 (wl-event-loop-dispatch event-loop 16)
+	 (wl-event-loop-dispatch event-loop 0)
 	 (wl-display-flush-clients (display *compositor*))
 	 (process-events (backend *compositor*))
 	 (animation::update-animations (lambda ()
@@ -167,6 +167,8 @@
 			   1
 			   (null-pointer)
 			   (callback shell-bind))
+	 (make-xdg-shell-server-interfaces)
+	 ;;(make-xdg-interfaces)
 	 (wl-global-create (display *compositor*)
 			   xdg-shell-interface
 			   1
