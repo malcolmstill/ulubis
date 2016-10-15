@@ -1,5 +1,7 @@
 # Ulubis
 
+![Ulubis in action](https://github.com/malcolmstill/ulubis/raw/master/ulubis.gif)
+
 Ulubis is a Wayland compositor written in Common Lisp. It currently only works with SBCL. Rendering is done with OpenGL via cbaggers' fantastic CEPL library.
 
 ## Dependencies
