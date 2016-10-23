@@ -56,7 +56,7 @@
 			    (round (* 256 (- y (y surface)))))
     (wl-pointer-send-frame (->pointer (client surface)))))
 
-(defun incf-pointer (delta-x delta-y)
+(defun update-pointer (delta-x delta-y)
   (with-slots (pointer-x pointer-y screen-width screen-height) *compositor*
     (incf pointer-x delta-x)
     (incf pointer-y delta-y)
@@ -68,7 +68,7 @@
 (defmethod mouse-motion-handler ((mode default-mode) time delta-x delta-y)
   ;; Update the pointer location
   (with-slots (pointer-x pointer-y) *compositor*
-    (incf-pointer delta-x delta-y)
+    (update-pointer delta-x delta-y)
     (when (cursor-surface *compositor*)
       (setf (render-needed *compositor*) t))
     (let ((old-surface (pointer-surface *compositor*))
