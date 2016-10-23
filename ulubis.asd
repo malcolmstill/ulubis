@@ -27,7 +27,7 @@
 	      ;; #-ccl
 	       (:file "plumbing")
 	       ;;#+ccl
-	       ;;(:file "plumbing-unwrapped")
+	       (:file "plumbing-unwrapped")
                (:file "ulubis")
 	       (:file "install")))
 

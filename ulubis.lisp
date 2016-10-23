@@ -109,7 +109,7 @@ Smooth animation with
 				      (round (+ width delta-x))
 				      (round (+ height delta-y))
 				      array
-				      (get-internal-real-time))
+				      (get-milliseconds))
 	  (wl-array-release array)
 	  (foreign-free array))))))
 
@@ -125,7 +125,7 @@ Smooth animation with
 				    (round width)
 				    (round height)
 				    array
-				    (get-internal-real-time))
+				    (get-milliseconds))
 	(wl-array-release array)
 	(foreign-free array)))))
 
@@ -136,7 +136,7 @@ Smooth animation with
     (when (->xdg-surface surface)
       (let ((array (foreign-alloc '(:struct wl_array))))
 	(wl-array-init array)
-	(xdg-surface-send-configure (->xdg-surface surface) 0 0 array (get-internal-real-time))
+	(xdg-surface-send-configure (->xdg-surface surface) 0 0 array (get-milliseconds))
 	(wl-array-release array)
 	(foreign-free array)))))
 
@@ -164,7 +164,7 @@ Smooth animation with
 				       (mods-group *compositor*)))
 	 (when (->xdg-surface surface)
 	   (setf (mem-aref (wl-array-add array 4) :int32) 4)
-	   (xdg-surface-send-configure (->xdg-surface surface) 0 0 array (get-internal-real-time)))
+	   (xdg-surface-send-configure (->xdg-surface surface) 0 0 array (get-milliseconds)))
 	 (wl-array-release array)
 	 (foreign-free array))))))
 
@@ -231,12 +231,13 @@ Smooth animation with
 	 (setf (display *compositor*) (wl-display-create))
 	 (format t "Opened socket: ~A~%" (wl-display-add-socket-auto (display *compositor*)))
 
-	 (format t "Initializing wayland~%")
-	 (initialise-wayland) ;; plumbing.lisp
-	 (format t "Initializing device manager~%")
-	 (init-device-manager) ;; plumbing.lisp
-;;	 (make-xdg-shell-server-interfaces)
-;;	 (set-implementations) ;; plumbing-unwrapped.lisp
+;;	 (format t "Initializing wayland~%")
+;;	 (initialise-wayland) ;; plumbing.lisp
+;;	 (format t "Initializing device manager~%")
+	 ;;	 (init-device-manager) ;; plumbing.lisp
+	 (initialize-wayland-server-interfaces) 
+	 (initialize-xdg-shell-server-interfaces) 
+	 (set-implementations) ;; plumbing-unwrapped.lisp
 	 (wl-global-create (display *compositor*)
 			   wl-compositor-interface
 			   3
@@ -248,7 +249,7 @@ Smooth animation with
 			   (null-pointer)
 			   (callback shell-bind))
 	 (format t "Making xdg-shell-server interfaces~%")
-	 (make-xdg-shell-server-interfaces)
+;;	 (make-xdg-shell-server-interfaces)
 	 ;;(make-xdg-interfaces)
 	 (wl-global-create (display *compositor*)
 			   xdg-shell-interface
@@ -267,12 +268,12 @@ Smooth animation with
 			   (null-pointer)
 			   (callback device-manager-bind))
 
-	 (init-wl-output) ;; plumbing.lisp
-#|	   (wl-global-create (display *compositor*) ;; plumbing-unwrapped.lisp
+;;	 (init-wl-output) ;; plumbing.lisp
+	   (wl-global-create (display *compositor*) ;; plumbing-unwrapped.lisp
 		    wl-output-interface
 		    2
 		    (null-pointer)
-		    (callback output-bind))|#
+		    (callback output-bind))
 	 
 	 ;; Initialise shared memory
 	 (wl-display-init-shm (display *compositor*))

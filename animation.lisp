@@ -2,6 +2,7 @@
 (defpackage :animation
   (:use :common-lisp :cffi :wayland-server-core :easing)
   (:export
+   get-milliseconds
    initialize-animation
    animation
    sequential-animation
@@ -20,16 +21,22 @@
 
 (in-package :animation)
 
+(defun get-milliseconds ()
+  (round (coerce (/ (get-internal-real-time) (/ internal-time-units-per-second 1000))
+	  'float)))
+
 (defparameter *animations* nil)  ;; List of active animations
 (defparameter *event-loop* nil)  ;; Wayland event loop
 (defparameter *timer* nil)       ;; Wayland timer
+(defparameter *rate* 5)
+
+(defcallback timer-callback :int ()
+	     (when *timer*
+	       (wl-event-source-timer-update *timer* *rate*))
+	     1)
 
 (defun initialize-animation (event-loop)
-  (setf *event-loop* event-loop)
-  (defcallback timer-callback :int ()
-	       (when *timer*
-		 (wl-event-source-timer-update *timer* 5))
-	       1))
+  (setf *event-loop* event-loop))
 
 (defun start-timer ()
   "Start the 60-FPS timer"
@@ -86,7 +93,7 @@
   (when (not *timer*)
     (start-timer)))
 
-(defmethod start-animation ((animation animation) &key (time (get-internal-real-time)) finished-fn (toplevel t))
+(defmethod start-animation ((animation animation) &key (time (get-milliseconds)) finished-fn (toplevel t))
   (setf (start-time animation) time)
   (setf (toplevel? animation) toplevel)
   (setf (finished-fn animation) finished-fn)
@@ -132,7 +139,7 @@ etc.
   (when (or (from animation) (to animation))
     (error "Parallel animations do not take from or to arguments")))
 
-(defmethod start-animation ((animation parallel-animation) &key (time (get-internal-real-time)) finished-fn (toplevel t))
+(defmethod start-animation ((animation parallel-animation) &key (time (get-milliseconds)) finished-fn (toplevel t))
   (setf (toplevel? animation) toplevel)
   (mapcar (lambda (a)
 	    (start-animation a :time time :toplevel nil))
@@ -164,7 +171,7 @@ etc.
   (when (or (from animation) (to animation))
     (error "Sequential animations do not take from or to arguments")))
 
-(defmethod start-animation ((animation sequential-animation) &key (time (get-internal-real-time)) finished-fn (toplevel t))
+(defmethod start-animation ((animation sequential-animation) &key (time (get-milliseconds)) finished-fn (toplevel t))
   (setf (remaining animation) (animations animation))
   (start-animation (first (animations animation)) :time time :toplevel nil)
   (setf (toplevel? animation) toplevel)
@@ -200,6 +207,6 @@ etc.
 (defun update-animations (callback)
   (when *animations*
     (funcall callback))
-  (let ((time (get-internal-real-time)))
+  (let ((time (get-milliseconds)))
     (loop :for a :in *animations*
        :do (update-animation a time))))

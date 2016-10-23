@@ -66,7 +66,7 @@
        (free ,array)
 
        (when (->frame-callback ,surface)
-		 (wl-callback-send-done (->frame-callback ,surface) (get-internal-real-time))
+		 (wl-callback-send-done (->frame-callback ,surface) (get-milliseconds))
 		 (wl-resource-destroy (->frame-callback ,surface))
 		 (setf (->frame-callback ,surface) nil)))))
 |#
@@ -104,7 +104,7 @@
        (free ,array)
 
        (when (->frame-callback ,surface)
-		 (wl-callback-send-done (->frame-callback ,surface) (get-internal-real-time))
+		 (wl-callback-send-done (->frame-callback ,surface) (get-milliseconds))
 		 (wl-resource-destroy (->frame-callback ,surface))
 		 (setf (->frame-callback ,surface) nil)))))
 
