@@ -2,9 +2,11 @@
 (defpackage :ulubis-backend
   (:use :common-lisp :cffi :xkb)
   (:export
+   backend
    backend-name
    initialise-backend
    process-events
+   get-fd
    register-keyboard-handler
    register-mouse-motion-handler
    register-mouse-button-handler
