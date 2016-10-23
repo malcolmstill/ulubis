@@ -3,7 +3,61 @@
 
 (defparameter *compositor* nil)
 
-(defun main-loop (event-loop)
+#|
+Smooth animation with
+(defun main-loop-drm (event-loop)
+  (let ((wayland-fd (wl-event-loop-get-fd event-loop))
+	(backend-fd (get-fd (backend *compositor*))))
+    (nix:with-pollfds (pollfds
+		       (wayland-pollfd wayland-fd nix:pollin nix:pollpri)
+		       (backend-pollfd backend-fd nix:pollin nix:pollpri))
+      (loop :while (running *compositor*)
+	 :do (progn
+	       (wl-event-loop-dispatch event-loop 0)
+	       (wl-display-flush-clients (display *compositor*))
+	       (animation::update-animations (lambda ()
+					       (setf (render-needed *compositor*) t)))
+	       (let ((event (nix:poll pollfds 2 5)))
+		 (when (render-needed *compositor*)
+		   (render (current-mode))
+		   (swap-buffers (backend *compositor*))
+		   (setf (render-needed *compositor*) nil))
+		 (when event
+		   (when (= (nix:poll-return-event wayland-pollfd) nix:pollin)
+		     )
+		   
+		   (when (= (nix:poll-return-event backend-pollfd) nix:pollin)
+		     (process-events (backend *compositor*))))))))))
+|#
+
+
+(defun main-loop-drm (event-loop)
+  (let ((wayland-fd (wl-event-loop-get-fd event-loop))
+	(backend-fd (get-fd (backend *compositor*))))
+    (nix:with-pollfds (pollfds
+		       (wayland-pollfd wayland-fd nix:pollin nix:pollpri)
+		       (backend-pollfd backend-fd nix:pollin nix:pollpri))
+      (initialize-animation event-loop)
+      (loop :while (running *compositor*)
+	 :do (progn
+	       (when (render-needed *compositor*)
+		 (render (current-mode))
+		 (swap-buffers (backend *compositor*))
+		 (setf (render-needed *compositor*) nil))
+	       (wl-event-loop-dispatch event-loop 0)
+	       (wl-display-flush-clients (display *compositor*))
+	       (alexandria:ignore-some-conditions (nix:eintr)
+		 (let ((event (nix:poll pollfds 2 -1)))
+		   (wl-event-loop-dispatch event-loop 0)
+		   (wl-display-flush-clients (display *compositor*))
+		   (animation::update-animations (lambda ()
+						   (setf (render-needed *compositor*) t)))
+		   (when event
+		     (when (= (nix:poll-return-event backend-pollfd) nix:pollin)
+		       (process-events (backend *compositor*)))))))))))
+
+#|
+(defun main-loop-sdl (event-loop)
   (if (running *compositor*)
        (progn
 	 (wl-event-loop-dispatch event-loop 0)
@@ -15,9 +69,31 @@
 	   (render (current-mode))
 	   (swap-buffers (backend *compositor*))
 	   (setf (render-needed *compositor*) nil))
-	 (main-loop event-loop))
+	 (main-loop-sdl event-loop))
        nil))
-  
+|#
+
+(defun main-loop-sdl (event-loop)
+  (let ((wayland-fd (wl-event-loop-get-fd event-loop)))
+    (nix:with-pollfds (pollfds
+		       (wayland-pollfd wayland-fd nix:pollin nix:pollpri))
+      (initialize-animation event-loop)
+      (loop :while (running *compositor*)
+	 :do (progn
+	       (when (render-needed *compositor*)
+		 (render (current-mode))
+		 (swap-buffers (backend *compositor*))
+		 (setf (render-needed *compositor*) nil))
+	       (wl-event-loop-dispatch event-loop 0)
+	       (wl-display-flush-clients (display *compositor*))
+	       (alexandria:ignore-some-conditions (nix:eintr)
+		 (let ((event (nix:poll pollfds 1 5)))
+		   (wl-event-loop-dispatch event-loop 0)
+		   (wl-display-flush-clients (display *compositor*))
+		   (animation::update-animations (lambda ()
+						   (setf (render-needed *compositor*) t)))
+		   (process-events (backend *compositor*)))))))))
+ 
 (defun resize-surface-relative (surface delta-x delta-y)
   (with-slots (x y ->xdg-surface input-region) surface
     (let ((width (width (first (last (rects input-region)))))
@@ -102,6 +178,7 @@
   (mouse-button-handler (current-mode) time button state))
 
 (defun window-event-handler ()
+  (new-xkb-state *compositor*)
   (setf (render-needed *compositor*) t))
 
 (defun call-keyboard-handler (time key state)
@@ -134,7 +211,7 @@
 	 
 	 ;; Initialise backend
 	 (format t "Initialising backend: ~A~%" backend-name)
-	 (setf (backend *compositor*) (make-instance backend-name))
+	 (setf (backend *compositor*) (make-instance 'backend))
 	 (initialise-backend (backend *compositor*)
 			     (screen-width *compositor*)
 			     (screen-height *compositor*)
@@ -154,8 +231,12 @@
 	 (setf (display *compositor*) (wl-display-create))
 	 (format t "Opened socket: ~A~%" (wl-display-add-socket-auto (display *compositor*)))
 
-	 (initialise-wayland)
-	 (init-device-manager)
+	 (format t "Initializing wayland~%")
+	 (initialise-wayland) ;; plumbing.lisp
+	 (format t "Initializing device manager~%")
+	 (init-device-manager) ;; plumbing.lisp
+;;	 (make-xdg-shell-server-interfaces)
+;;	 (set-implementations) ;; plumbing-unwrapped.lisp
 	 (wl-global-create (display *compositor*)
 			   wl-compositor-interface
 			   3
@@ -166,6 +247,7 @@
 			   1
 			   (null-pointer)
 			   (callback shell-bind))
+	 (format t "Making xdg-shell-server interfaces~%")
 	 (make-xdg-shell-server-interfaces)
 	 ;;(make-xdg-interfaces)
 	 (wl-global-create (display *compositor*)
@@ -175,7 +257,7 @@
 			   (callback xdg-shell-bind))
 	 (wl-global-create (display *compositor*)
 			   wl-seat-interface
-			   1
+			   4
 			   (null-pointer)
 			   (callback seat-bind))
 
@@ -185,14 +267,21 @@
 			   (null-pointer)
 			   (callback device-manager-bind))
 
-	 (init-wl-output)
+	 (init-wl-output) ;; plumbing.lisp
+#|	   (wl-global-create (display *compositor*) ;; plumbing-unwrapped.lisp
+		    wl-output-interface
+		    2
+		    (null-pointer)
+		    (callback output-bind))|#
 	 
 	 ;; Initialise shared memory
 	 (wl-display-init-shm (display *compositor*))
 	 ;; Run main loop
 	 (format t "Running main loop~%")
 	 (setf (running *compositor*) t)
-	 (main-loop (wl-display-get-event-loop (display *compositor*))))
+	 (if (string-equal (symbol-name backend-name) "backend-drm-gbm")
+	     (main-loop-drm (wl-display-get-event-loop (display *compositor*)))
+	     (main-loop-sdl (wl-display-get-event-loop (display *compositor*)))))
     (when (display *compositor*)
       (wl-display-destroy (display *compositor*))
       (setf (display *compositor*) nil))

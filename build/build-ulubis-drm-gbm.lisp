@@ -1,8 +1,7 @@
-(ql:quickload :ulubis)
 (ql:quickload :ulubis-drm-gbm)
 
-(sb-ext:save-lisp-and-die "ulubis"
-			  :executable t
-			  :toplevel #'ulubis::run-compositor)
+(format t "Building ulubis with DRM backend~%")
+
+(trivial-dump-core:save-executable "ulubis" #'ulubis::run-compositor)
 
 (quit)

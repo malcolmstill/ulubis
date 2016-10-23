@@ -5,11 +5,14 @@
   :author "Malcolm Still"
   :license "BSD 3-Clause"
   :depends-on (#:cffi
+	       #:osicat
 	       #:swank
 	       #:cepl
 	       #:easing
 	       #:cl-xkb
-               #:cl-wayland)
+               #:cl-wayland
+	       #:trivial-dump-core
+	       #:uiop)
   :serial t
   :components ((:file "backend")
 	       (:file "animation")
@@ -21,6 +24,10 @@
 	       (:file "default-mode")
 	       (:file "alt-tab-mode")
 	       ;;(:file "backend-sdl/backend-sdl")
+	      ;; #-ccl
 	       (:file "plumbing")
-               (:file "ulubis")))
+	       ;;#+ccl
+	       ;;(:file "plumbing-unwrapped")
+               (:file "ulubis")
+	       (:file "install")))
 
