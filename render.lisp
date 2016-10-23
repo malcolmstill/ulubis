@@ -32,6 +32,7 @@
       (wl-buffer-send-release buffer)
       (setf (->buffer surface) (null-pointer)))))
 
+#|
 (defmacro with-surface ((vertex-stream tex mode surface &key (z 0) (scale 1.0)) &body body)
   (let ((x (gensym "x"))
 	(y (gensym "y"))
@@ -68,6 +69,7 @@
 		 (wl-callback-send-done (->frame-callback ,surface) (get-internal-real-time))
 		 (wl-resource-destroy (->frame-callback ,surface))
 		 (setf (->frame-callback ,surface) nil)))))
+|#
 
 (defmacro with-surface ((vertex-stream tex mode surface &key (z 0) (scale 1.0)) &body body)
   (let ((x (gensym "x"))
