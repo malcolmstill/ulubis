@@ -35,6 +35,8 @@
    (y :accessor y :initarg :y :initform 0)
    (width :accessor width :initarg :width :initform 0)
    (height :accessor height :initarg :height :initform 0)
+   (origin-x :accessor origin-x :initarg :origin-x :initform 0.0)
+   (origin-y :accessor origin-y :initarg :origin-y :initform 0.0)
    (scale-x :accessor scale-x :initarg :scale-x :initform 1.0)
    (scale-y :accessor scale-y :initarg :scale-y :initform 1.0)
    (opacity :accessor opacity :initarg :opacity :initform 1.0)
