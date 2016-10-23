@@ -32,7 +32,7 @@ The dependencies for the SDL2 backend are:
 
 Installation in the future (when everything is available on quicklisp) will be
 ```
-> (ql:quickload :ulubis)
+CL-USER> (ql:quickload :ulubis)
 ```
 
 Then `cd` to the ulubis directory and run
@@ -47,7 +47,11 @@ which will generate an `ulubis` and `ulubis-sdl` executable in the build directo
 
 ## Running ulubis
 
-To run `ulubis` the user must be a member of the `input` and `video` groups. Navigate to a virtual terminal and run `ulubis`.
+To run `ulubis` the user must be a member of the `input` and `video` groups. Navigate to a virtual terminal and run
+
+```
+> ulubis
+```
 
 For the SDL2 backend simply run `ulubis-sdl` when in X.
 
@@ -83,8 +87,10 @@ An example configuration is as follows:
 	    "")
 
 ;; Only for DRM/GBM backend, set the device paths
-;; for libinput (on my machine event5 is the keboard
-;; and event8 is the mouse)
+;; for libinput (on my machine event5 is the keyboard
+;; and event8 is the mouse but these are subject to change
+;; on rebooting...in future we will support automatic
+;; detection with udev)
 (setf (devices *compositor*) (list
 			      "/dev/input/event5"
 			      "/dev/input/event8"))
