@@ -1,7 +1,8 @@
 
 (defpackage :animation
-  (:use :common-lisp :easing)
+  (:use :common-lisp :cffi :wayland-server-core :easing)
   (:export
+   initialize-animation
    animation
    sequential-animation
    parallel-animation
@@ -19,7 +20,25 @@
 
 (in-package :animation)
 
-(defparameter *animations* nil)
+(defparameter *animations* nil)  ;; List of active animations
+(defparameter *event-loop* nil)  ;; Wayland event loop
+(defparameter *timer* nil)       ;; Wayland timer
+
+(defun initialize-animation (event-loop)
+  (setf *event-loop* event-loop)
+  (defcallback timer-callback :int ()
+	       (when *timer*
+		 (wl-event-source-timer-update *timer* 5))
+	       1))
+
+(defun start-timer ()
+  "Start the 60-FPS timer"
+  (when (not *timer*)
+    (setf *timer*
+	  (wl-event-loop-add-timer *event-loop*
+				   (callback timer-callback)
+				   (null-pointer))))
+  (wl-event-source-timer-update *timer* 5))
 
 (defclass animation ()
   ((target :accessor target :initarg :target :initform nil)
@@ -33,7 +52,7 @@
    (integer? :accessor integer? :initarg :integer? :initform nil)
    (finished-fn :accessor finished-fn :initarg :finished-fn :initform nil)))
 
-(defun animation (&key target property from to easing-fn (start-time 0) (duration 0) (toplevel? t) integer? finished-fn)
+(defun animation (&key target property from to (easing-fn 'easing:linear) (start-time 0) (duration 0) (toplevel? t) integer? finished-fn)
   (make-instance 'animation
 		 :target target
 		 :property property
@@ -62,6 +81,11 @@
 |#
 
 ;; Improvement: maybe we should be able to pass &rest rest parameters to finished-fn
+
+(defmethod start-animation :before ((animation animation) &key)
+  (when (not *timer*)
+    (start-timer)))
+
 (defmethod start-animation ((animation animation) &key (time (get-internal-real-time)) finished-fn (toplevel t))
   (setf (start-time animation) time)
   (setf (toplevel? animation) toplevel)
@@ -167,7 +191,11 @@ etc.
 	  t))))
 
 (defun stop-animation (animation)
-  (setf *animations* (remove animation *animations*)))
+  (setf *animations* (remove animation *animations*))
+  (when (not *animations*)
+    (when *timer*
+      (wl-event-source-remove *timer*)
+      (setf *timer* nil))))
 
 (defun update-animations (callback)
   (when *animations*
