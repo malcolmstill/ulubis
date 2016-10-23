@@ -1,6 +1,8 @@
 
 (in-package :ulubis)
 
+(defparameter *compositor* nil)
+
 (defclass compositor ()
   ((running :accessor running :initarg :running :initform t)
    (backend :accessor backend :initarg :backend :initform nil)
@@ -56,16 +58,22 @@
 				 o))
   (setf (xkb-state compositor) (xkb:xkb-state-new (xkb-keymap compositor))))
 
+(defun new-xkb-state (compositor)
+  (when (xkb-state compositor)
+    (xkb:xkb-state-unref (xkb-state compositor)))
+  (setf (xkb-state compositor) (xkb:xkb-state-new (xkb-keymap compositor))))
+
 (defun get-keymap (compositor)
   (let* ((string (xkb:xkb-keymap-get-as-string (xkb-keymap compositor) 1)) ;; 1 == XKB_KEYMAP_FORMAT_TEXT_V!
 	 (size (+ (length string) 1))
-	 (xdg-runtime-dir (sb-posix:getenv "XDG_RUNTIME_DIR")))
-    (multiple-value-bind (fd name) (sb-posix:mkstemp (concatenate 'string xdg-runtime-dir "/XXXXXXXX"))
-      (sb-posix:ftruncate fd size)
-      (let ((map (sb-posix:mmap nil size (logxor sb-posix:prot-read sb-posix:prot-write) sb-posix:map-shared fd 0)))
-	(lisp-string-to-foreign string map size)
-	(sb-posix:munmap map size)
-	(values fd size)))))
+	 (xdg-runtime-dir (nix:getenv "XDG_RUNTIME_DIR"))
+	 (fd (nix:mkstemp (concatenate 'string xdg-runtime-dir "/XXXXXXXX"))))
+;;    (multiple-value-bind (fd name) (nix:mkstemp (concatenate 'string xdg-runtime-dir "/XXXXXXXX"))
+    (nix:ftruncate fd size)
+    (let ((map (nix:mmap (null-pointer) size (logior nix:prot-read nix:prot-write) nix:map-shared fd 0)))
+      (lisp-string-to-foreign string map size)
+      (nix:munmap map size)
+      (values fd size))))
 
 (defun find-client (client-pointer compositor)
   (find-if (lambda (client)
@@ -103,6 +111,13 @@
 (defun raise-surface (surface compositor)
   (when surface
     (setf (surfaces compositor) (cons surface (remove surface (surfaces compositor))))))
+
+(defstruct move-op
+  surface
+  surface-x
+  surface-y
+  pointer-x
+  pointer-y)
 
 (defstruct resize-op
   surface
