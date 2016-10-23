@@ -4,7 +4,7 @@
 (defun initialise-wayland ()
   ;; Define callbacks at run time otherwise save-lisp-and-die executable
   ;; doesn't work
-  (defcallback my-commit :void
+  (defcallback commit :void
     ((client-ptr :pointer) (resource :pointer))
     (let* ((client (find-client client-ptr *compositor*))
 	   (->surface (wl-resource-get-user-data resource))
@@ -15,14 +15,14 @@
 	(first-commit (current-mode) surface))
       (setf (render-needed *compositor*) t)))
   
-  (defcallback my-attach :void
+  (defcallback attach :void
     ((client-ptr :pointer) (resource :pointer) (buffer :pointer) (x :int32) (y :int32))
     (let* ((client (find-client client-ptr *compositor*))
 	   (->surface (wl-resource-get-user-data resource)))
       (format t "New buffer ~A~%" buffer)
       (setf (->buffer (find-surface ->surface *compositor*)) buffer)))
   
-  (defcallback my-frame :void
+  (defcallback frame :void
     ((client-ptr :pointer) (resource :pointer) (callback :uint32))
     (let* ((->surface (wl-resource-get-user-data resource))
 	   (client (find-client client-ptr *compositor*))
@@ -33,7 +33,7 @@
       (when client
 	(setf (->frame-callback surface) (wl-resource-create client-ptr wl-callback-interface 1 callback)))))
   
-  (defcallback my-set-input-region :void
+  (defcallback set-input-region :void
     ((->client :pointer) (resource :pointer) (region :pointer))
     (let* ((->surface (wl-resource-get-user-data resource))
 	   (surface (find-surface ->surface *compositor*)))
@@ -49,10 +49,10 @@
   
   (defparameter surface-implementation
     (implement-wl-surface
-     :commit (callback my-commit)
-     :attach (callback my-attach)
-     :frame (callback my-frame)
-     :set-input-region (callback my-set-input-region)
+     :commit (callback commit)
+     :attach (callback attach)
+     :frame (callback frame)
+     :set-input-region (callback set-input-region)
      :set-opaque-region (callback set-opaque-region)))
   
   (defcallback delete-surface :void
@@ -156,7 +156,11 @@
     (format t "Surface requested move~%")
     (let* ((surface-ptr (wl-resource-get-user-data resource))
 	   (surface (find-surface surface-ptr *compositor*)))
-        (setf (moving-surface *compositor*) surface)))
+      (setf (moving-surface *compositor*) (make-move-op :surface surface
+							:surface-x (x surface)
+							:surface-y (y surface)
+							:pointer-x (pointer-x *compositor*)
+							:pointer-y (pointer-y *compositor*)))))
 
 ;;  (defcallback resize :void
   ;;  )    
@@ -270,13 +274,15 @@
   
   (defcallback get-keyboard :void
     ((client :pointer) (resource :pointer) (id :uint32))
-    (let ((keyboard (wl-resource-create client wl-keyboard-interface 1 id)))
+    (let ((keyboard (wl-resource-create client wl-keyboard-interface (wl-resource-get-version resource) id)))
       (wl-resource-set-implementation
        keyboard
        keyboard-implementation
        (null-pointer)
        (null-pointer))
       (setf (->keyboard (find-client client *compositor*)) keyboard)
+      (when (>= (wl-resource-get-version keyboard) 4)
+	(wl-keyboard-send-repeat-info keyboard 30 200))
       (multiple-value-bind (fd size) (get-keymap *compositor*)
 	(wl-keyboard-send-keymap keyboard 1 fd size))))
   
@@ -287,7 +293,7 @@
   (defcallback seat-bind :void
     ((client-ptr :pointer) (data :pointer) (version :uint32) (id :uint32))
     (format t "seat-bind called~%")
-    (let ((seat (wl-resource-create client-ptr wl-seat-interface 1 id)))
+    (let ((seat (wl-resource-create client-ptr wl-seat-interface 4 id)))
       (wl-resource-set-implementation
        seat
        seat-implementation
