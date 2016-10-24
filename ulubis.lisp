@@ -30,13 +30,12 @@ Smooth animation with
 		     (process-events (backend *compositor*))))))))))
 |#
 
-
 (defun main-loop-drm (event-loop)
   (let ((wayland-fd (wl-event-loop-get-fd event-loop))
 	(backend-fd (get-fd (backend *compositor*))))
-    (nix:with-pollfds (pollfds
-		       (wayland-pollfd wayland-fd nix:pollin nix:pollpri)
-		       (backend-pollfd backend-fd nix:pollin nix:pollpri))
+    (syscall:with-pollfds (pollfds
+			   (wayland-pollfd wayland-fd syscall:pollin syscall:pollpri)
+			   (backend-pollfd backend-fd syscall:pollin syscall:pollpri))
       (initialize-animation event-loop)
       (loop :while (running *compositor*)
 	 :do (progn
@@ -47,13 +46,13 @@ Smooth animation with
 	       (wl-event-loop-dispatch event-loop 0)
 	       (wl-display-flush-clients (display *compositor*))
 	       (alexandria:ignore-some-conditions (nix:eintr)
-		 (let ((event (nix:poll pollfds 2 -1)))
+		 (let ((event (syscall:poll pollfds 2 -1)))
 		   (wl-event-loop-dispatch event-loop 0)
 		   (wl-display-flush-clients (display *compositor*))
 		   (animation::update-animations (lambda ()
 						   (setf (render-needed *compositor*) t)))
 		   (when event
-		     (when (= (nix:poll-return-event backend-pollfd) nix:pollin)
+		     (when (= (syscall:poll-return-event backend-pollfd) syscall:pollin)
 		       (process-events (backend *compositor*)))))))))))
 
 #|
@@ -75,8 +74,8 @@ Smooth animation with
 
 (defun main-loop-sdl (event-loop)
   (let ((wayland-fd (wl-event-loop-get-fd event-loop)))
-    (nix:with-pollfds (pollfds
-		       (wayland-pollfd wayland-fd nix:pollin nix:pollpri))
+    (syscall:with-pollfds (pollfds
+			   (wayland-pollfd wayland-fd syscall:pollin syscall:pollpri))
       (initialize-animation event-loop)
       (loop :while (running *compositor*)
 	 :do (progn
@@ -87,7 +86,7 @@ Smooth animation with
 	       (wl-event-loop-dispatch event-loop 0)
 	       (wl-display-flush-clients (display *compositor*))
 	       (alexandria:ignore-some-conditions (nix:eintr)
-		 (let ((event (nix:poll pollfds 1 5)))
+		 (let ((event (syscall:poll pollfds 1 5)))
 		   (wl-event-loop-dispatch event-loop 0)
 		   (wl-display-flush-clients (display *compositor*))
 		   (animation::update-animations (lambda ()
@@ -205,7 +204,7 @@ Smooth animation with
 	 (setf *compositor* (make-instance 'compositor))
 	 (setf (render-fn *compositor*) 'render)
 	 (format t "Made compositor object~%")
-
+	 
 	 (when (probe-file "~/.ulubis.lisp")
 	   (load "~/.ulubis.lisp"))
 	 
@@ -217,7 +216,7 @@ Smooth animation with
 			     (screen-height *compositor*)
 			     (devices *compositor*))
 	 (format t "Backend initialised~%")
-
+	 
 	 ;; Initialise our default mode
 	 (setf *default-mode* (make-instance 'default-mode))
 	 (init-mode *default-mode*)
@@ -226,18 +225,14 @@ Smooth animation with
 	 (register-mouse-button-handler (backend *compositor*) 'call-mouse-button-handler)
 	 (register-window-event-handler (backend *compositor*) 'window-event-handler)
 	 (register-keyboard-handler (backend *compositor*) 'call-keyboard-handler)
-
+	 
 	 ;; Create our wayland display
 	 (setf (display *compositor*) (wl-display-create))
 	 (format t "Opened socket: ~A~%" (wl-display-add-socket-auto (display *compositor*)))
-
-;;	 (format t "Initializing wayland~%")
-;;	 (initialise-wayland) ;; plumbing.lisp
-;;	 (format t "Initializing device manager~%")
-	 ;;	 (init-device-manager) ;; plumbing.lisp
+	 
 	 (initialize-wayland-server-interfaces) 
 	 (initialize-xdg-shell-server-interfaces) 
-	 (set-implementations) ;; plumbing-unwrapped.lisp
+	 (set-implementations) 
 	 (wl-global-create (display *compositor*)
 			   wl-compositor-interface
 			   3
@@ -248,9 +243,6 @@ Smooth animation with
 			   1
 			   (null-pointer)
 			   (callback shell-bind))
-	 (format t "Making xdg-shell-server interfaces~%")
-;;	 (make-xdg-shell-server-interfaces)
-	 ;;(make-xdg-interfaces)
 	 (wl-global-create (display *compositor*)
 			   xdg-shell-interface
 			   1
@@ -261,19 +253,16 @@ Smooth animation with
 			   4
 			   (null-pointer)
 			   (callback seat-bind))
-
 	 (wl-global-create (display *compositor*)
 			   wl-data-device-manager-interface
 			   3
 			   (null-pointer)
 			   (callback device-manager-bind))
-
-;;	 (init-wl-output) ;; plumbing.lisp
-	   (wl-global-create (display *compositor*) ;; plumbing-unwrapped.lisp
-		    wl-output-interface
-		    2
-		    (null-pointer)
-		    (callback output-bind))
+	 (wl-global-create (display *compositor*) 
+			   wl-output-interface
+			   2
+			   (null-pointer)
+			   (callback output-bind))
 	 
 	 ;; Initialise shared memory
 	 (wl-display-init-shm (display *compositor*))
@@ -289,6 +278,6 @@ Smooth animation with
     (destroy-backend (backend *compositor*))
     (setf *compositor* nil)
     (format t "Exit compositor")))
-
+  
 (defun run-compositor ()
   (initialise))

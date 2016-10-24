@@ -15,6 +15,7 @@
 	       #:uiop)
   :serial t
   :components ((:file "backend")
+	       (:file "syscall")
 	       (:file "animation")
 	       (:file "package")
 	       (:file "client")
@@ -23,11 +24,7 @@
 	       (:file "mode")
 	       (:file "default-mode")
 	       (:file "alt-tab-mode")
-	       ;;(:file "backend-sdl/backend-sdl")
-	      ;; #-ccl
 	       (:file "plumbing")
-	       ;;#+ccl
-	       (:file "plumbing-unwrapped")
                (:file "ulubis")
 	       (:file "install")))
 
