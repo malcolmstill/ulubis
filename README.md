@@ -2,17 +2,22 @@
 
 ![Ulubis in action](https://github.com/malcolmstill/ulubis/raw/master/ulubis.gif)
 
-Ulubis is a Wayland compositor written in Common Lisp. It currently only works with SBCL. Rendering is done with OpenGL via cbaggers' fantastic CEPL library.
+Ulubis is a Wayland compositor written in Common Lisp.
+
+## Status
+
+Ulubis is known to work with sbcl and ccl.
 
 ## Dependencies
 
 Ulubis depends on:
 - libwayland
 - [cl-wayland](https://github.com/malcolmstill/cl-wayland)
-- libXKB
+- libxkbcommon
 - [cl-xkb](https://github.com/malcolmstill/cl-xkb)
 - [cepl](https://github.com/cbaggers/cepl)
 - [vydd's easing library](https://github.com/vydd/easing)
+- [osicat](https://github.com/osicat/osicat)
 
 Ulubis has two backends: [ulubis-sdl](https://github.com/malcolmstill/ulubis-sdl) (an SDL2 backend) and [ulubis-drm-gbm](https://github.com/malcolmstill/ulubis-drm-gbm) (a DRM/GBM backend). The DRM/GBM backend is intended to be *the* backend whilst the SDL2 is intended for testing on X.
 
@@ -30,22 +35,48 @@ The dependencies for the SDL2 backend are:
 - SDL2
 - [cepl.sdl2](https://github.com/cbaggers/cepl.sdl2)
 
-## Installation of ulubis
+## Installation of ulubis (the following will work pending inclusion of ulubis on quicklisp)
 
-Installation in the future (when everything is available on quicklisp) will be
+From a terminal run sbcl (or ccl) and issue the commands `(ql:quickload :ulubis)` followed by `(ulubis::build)`, for example (you may see more output):
 ```
-CL-USER> (ql:quickload :ulubis)
-```
+[malcolm@sense-amid-madness-wit-amidst-folly cl-libinput]$ sbcl
+This is SBCL 1.3.4-1.fc24, an implementation of ANSI Common Lisp.
+More information about SBCL is available at <http://www.sbcl.org/>.
 
-Then `cd` to the ulubis directory and run
+SBCL is free software, provided as is, with absolutely no warranty.
+It is mostly in the public domain; some portions are provided under
+BSD-style licenses.  See the CREDITS and COPYING files in the
+distribution for more information.
+* (ql:quickload :ulubis)
+To load "ulubis":
+  Load 1 ASDF system:
+    ulubis
+; Loading "ulubis"
+...............................................
+; recompile cpu side of (CURSOR-PIPELINE ...)
+..
+; recompile cpu side of (DEFAULT-PIPELINE ...)
+....
+; recompile cpu side of (ALT-TAB-PIPELINE ...)
+.
+(:ULUBIS)
+* (ulubis::build)
+To load "ulubis-drm-gbm":
+  Load 1 ASDF system:
+    ulubis-drm-gbm
+; Loading "ulubis-drm-gbm"
+.
+Building ulubis with DRM backend
+[undoing binding stack and other enclosing state... done]
+[saving current Lisp image into ulubis:
+writing 4800 bytes from the read-only space at 0x20000000
+writing 18192 bytes from the static space at 0x20100000
+writing 92176384 bytes from the dynamic space at 0x1000000000
+done]
 ```
-> sh build/build-ulubis-drm-gbm.sh
-```
-or
-```
-> sh build/build-ulubis-sdl.sh
-```
-which will generate an `ulubis` and `ulubis-sdl` executable in the build directory.
+This will generate the `ulubis` executable in the current directory which uses the DRM backend.
+
+Alternatively you can issues `(ulubis::build-sdl)` in place of `(ulubis::build)` to generate an executable that uses the SDL backend which can be run on X.
 
 ## Running ulubis
 
@@ -87,14 +118,5 @@ An example configuration is as follows:
 	    "gb"
 	    ""
 	    "")
-
-;; Only for DRM/GBM backend, set the device paths
-;; for libinput (on my machine event5 is the keyboard
-;; and event8 is the mouse but these are subject to change
-;; on rebooting...in future we will support automatic
-;; detection with udev)
-(setf (devices *compositor*) (list
-			      "/dev/input/event5"
-			      "/dev/input/event8"))
 
 ```
