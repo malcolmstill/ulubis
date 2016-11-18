@@ -12,7 +12,10 @@
    register-mouse-button-handler
    register-window-event-handler
    swap-buffers
-   destroy-backend))
+   destroy-backend
+   event-loop-add-drm-fd
+   set-scheduled
+   get-scheduled))
 
 (in-package :ulubis-backend)
 
@@ -26,3 +29,8 @@
 (defgeneric register-window-event-handler (backend keyboard-handler)) ;; Useful if running on X
 (defgeneric swap-buffers (backend))
 (defgeneric destroy-backend (backend))
+
+;; DRM backend only
+(defgeneric event-loop-add-drm-fd (backend event-loop))
+(defgeneric set-scheduled (backend value))
+(defgeneric get-scheduled (backend))

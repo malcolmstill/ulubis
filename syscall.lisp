@@ -66,5 +66,5 @@
 (defun ioctl (fd request &optional (arg nil argp))
   (cond
     ((not argp) (nix:ioctl fd request))
-    ((pointerp arg) (nix:ioctl fd request))
+    ((pointerp arg) (nix:ioctl fd request arg))
     ((integerp arg) (%ioctl-with-integer-arg fd request arg))))

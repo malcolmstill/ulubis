@@ -187,7 +187,7 @@ etc.
 	    (setf remaining (rest remaining))
 	    (if remaining
 		(progn
-		  (format t "Starting animation  ~A~%" (first remaining))
+		  ;;(format t "Starting animation ~A ~A~%" animation (first remaining))
 		  (start-animation (first remaining) :time time :toplevel nil) ;; More animations to run
 		  t)
 		(progn
@@ -206,7 +206,7 @@ etc.
 
 (defun update-animations (callback)
   (when *animations*
-    (funcall callback))
-  (let ((time (get-milliseconds)))
-    (loop :for a :in *animations*
-       :do (update-animation a time))))
+    (funcall callback)
+    (let ((time (get-milliseconds)))
+      (loop :for a :in *animations*
+	 :do (update-animation a time)))))

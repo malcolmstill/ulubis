@@ -3,74 +3,32 @@
 
 (defparameter *compositor* nil)
 
-#|
-Smooth animation with
-(defun main-loop-drm (event-loop)
-  (let ((wayland-fd (wl-event-loop-get-fd event-loop))
-	(backend-fd (get-fd (backend *compositor*))))
-    (nix:with-pollfds (pollfds
-		       (wayland-pollfd wayland-fd nix:pollin nix:pollpri)
-		       (backend-pollfd backend-fd nix:pollin nix:pollpri))
-      (loop :while (running *compositor*)
-	 :do (progn
-	       (wl-event-loop-dispatch event-loop 0)
-	       (wl-display-flush-clients (display *compositor*))
-	       (animation::update-animations (lambda ()
-					       (setf (render-needed *compositor*) t)))
-	       (let ((event (nix:poll pollfds 2 5)))
-		 (when (render-needed *compositor*)
-		   (render (current-mode))
-		   (swap-buffers (backend *compositor*))
-		   (setf (render-needed *compositor*) nil))
-		 (when event
-		   (when (= (nix:poll-return-event wayland-pollfd) nix:pollin)
-		     )
-		   
-		   (when (= (nix:poll-return-event backend-pollfd) nix:pollin)
-		     (process-events (backend *compositor*))))))))))
-|#
+(defun draw-screen ()
+  (let ((texture (texture-of (current-view *compositor*)))) ;; This will return a texture
+    (with-screen (vs)
+      (cepl:clear)
+      (cepl:map-g #'passthrough-shader vs :texture texture)
+      (draw-cursor (pointer-x *compositor*)
+		   (pointer-y *compositor*)
+		   (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1 -1))
+      (swap-buffers (backend *compositor*))
+      (setf (render-needed *compositor*) nil))))
+
+(defcallback input-callback :void ((fd :int) (mask :int) (data :pointer))
+  (process-events (backend *compositor*)))
 
 (defun main-loop-drm (event-loop)
-  (let ((wayland-fd (wl-event-loop-get-fd event-loop))
-	(backend-fd (get-fd (backend *compositor*))))
-    (syscall:with-pollfds (pollfds
-			   (wayland-pollfd wayland-fd syscall:pollin syscall:pollpri)
-			   (backend-pollfd backend-fd syscall:pollin syscall:pollpri))
-      (initialize-animation event-loop)
-      (loop :while (running *compositor*)
-	 :do (progn
-	       (when (render-needed *compositor*)
-		 (render (current-mode))
-		 (swap-buffers (backend *compositor*))
-		 (setf (render-needed *compositor*) nil))
-	       (wl-event-loop-dispatch event-loop 0)
-	       (wl-display-flush-clients (display *compositor*))
-	       (alexandria:ignore-some-conditions (nix:eintr)
-		 (let ((event (syscall:poll pollfds 2 -1)))
-		   (wl-event-loop-dispatch event-loop 0)
-		   (wl-display-flush-clients (display *compositor*))
-		   (animation::update-animations (lambda ()
-						   (setf (render-needed *compositor*) t)))
-		   (when event
-		     (when (= (syscall:poll-return-event backend-pollfd) syscall:pollin)
-		       (process-events (backend *compositor*)))))))))))
-
-#|
-(defun main-loop-sdl (event-loop)
-  (if (running *compositor*)
-       (progn
-	 (wl-event-loop-dispatch event-loop 0)
-	 (wl-display-flush-clients (display *compositor*))
-	 (process-events (backend *compositor*))
-	 (animation::update-animations (lambda ()
-					 (setf (render-needed *compositor*) t)))
-	 (when (render-needed *compositor*)
-	   (render (current-mode))
-	   (swap-buffers (backend *compositor*))
-	   (setf (render-needed *compositor*) nil))
-	 (main-loop-sdl event-loop))
-       nil))
-|#
+  (let ((libinput-fd (get-fd (backend *compositor*))))
+    (initialize-animation event-loop)
+    (wl-event-loop-add-fd event-loop libinput-fd 1 (callback input-callback) (null-pointer))
+    (event-loop-add-drm-fd (backend *compositor*) event-loop)
+    (loop :while (running *compositor*)
+       :do (progn
+	     (when (and (render-needed *compositor*) (not (get-scheduled (backend *compositor*))))
+	       (draw-screen))
+	     (wl-display-flush-clients (display *compositor*))
+	     (wl-event-loop-dispatch event-loop 10)
+	     (animation::update-animations (lambda () (setf (render-needed *compositor*) t)))))))
 
 (defun main-loop-sdl (event-loop)
   (let ((wayland-fd (wl-event-loop-get-fd event-loop)))
@@ -80,9 +38,7 @@ Smooth animation with
       (loop :while (running *compositor*)
 	 :do (progn
 	       (when (render-needed *compositor*)
-		 (render (current-mode))
-		 (swap-buffers (backend *compositor*))
-		 (setf (render-needed *compositor*) nil))
+		 (draw-screen))
 	       (wl-event-loop-dispatch event-loop 0)
 	       (wl-display-flush-clients (display *compositor*))
 	       (alexandria:ignore-some-conditions (nix:eintr)
@@ -92,8 +48,8 @@ Smooth animation with
 		   (animation::update-animations (lambda ()
 						   (setf (render-needed *compositor*) t)))
 		   (process-events (backend *compositor*)))))))))
- 
-(defun resize-surface-relative (surface delta-x delta-y)
+
+(defun resize-surface-relative (surface view delta-x delta-y)
   (with-slots (x y ->xdg-surface input-region) surface
     (let ((width (width (first (last (rects input-region)))))
 	  (height (height (first (last (rects input-region))))))
@@ -102,7 +58,7 @@ Smooth animation with
 	(let ((array (foreign-alloc '(:struct wl_array))))
 	  (wl-array-init array)
 	  (setf (mem-aref (wl-array-add array 4) :int32) 3)
-	  (when (equalp surface (active-surface *compositor*))
+	  (when (equalp surface (active-surface view))
 	    (setf (mem-aref (wl-array-add array 4) :int32) 4))
 	  (xdg-surface-send-configure (->xdg-surface surface)
 				      (round (+ width delta-x))
@@ -112,13 +68,14 @@ Smooth animation with
 	  (wl-array-release array)
 	  (foreign-free array))))))
 
-(defun resize-surface-absolute (surface width height)
+(defun resize-surface-absolute (surface view width height)
+  (format t "Resize to ~Ax~A (~A,~A)~%" (round width) (round height) width height)
   (with-slots (x y ->xdg-surface input-region) surface
     (when (and ->xdg-surface (> width 32) (> height 32))
       (let ((array (foreign-alloc '(:struct wl_array))))
 	(wl-array-init array)
 	(setf (mem-aref (wl-array-add array 4) :int32) 3)
-	(when (equalp surface (active-surface *compositor*))
+	(when (equalp surface (active-surface view))
 	  (setf (mem-aref (wl-array-add array 4) :int32) 4))
 	(xdg-surface-send-configure (->xdg-surface surface)
 				    (round width)
@@ -139,6 +96,7 @@ Smooth animation with
 	(wl-array-release array)
 	(foreign-free array)))))
 
+#|
 (defun activate-surface (surface)
   (cond
     ;; No surface to activate
@@ -147,7 +105,7 @@ Smooth animation with
 		     (deactivate-surface (active-surface *compositor*))
 		     (setf (active-surface *compositor*) nil)))
     ;; Activating a non-active surface
-    ((not (equalp surface (active-surface *compositor*)))
+    ((and surface (not (cursor? surface)) (not (equalp surface (active-surface *compositor*))))
      (progn
        (deactivate-surface (active-surface *compositor*))
        (setf (active-surface *compositor*) surface)
@@ -166,33 +124,63 @@ Smooth animation with
 	   (xdg-surface-send-configure (->xdg-surface surface) 0 0 array (get-milliseconds)))
 	 (wl-array-release array)
 	 (foreign-free array))))))
+|#
+
+(defun activate-surface (surface view)
+  (with-slots (active-surface) view
+    (cond
+      ;; No surface to activate
+      ((not surface) (progn
+		       (format t "No surface to activate~%")
+		       (deactivate-surface active-surface)
+		       (setf active-surface nil)))
+      ;; Activating a non-active surface
+      ((and surface (not (cursor? surface)) (not (equalp surface active-surface)))
+       (progn
+	 (deactivate-surface active-surface)
+	 (setf active-surface surface)
+	 (let ((array (foreign-alloc '(:struct wl_array))))
+	   (wl-array-init array)
+	   (when (->keyboard (client surface))
+	     (wl-keyboard-send-enter (->keyboard (client surface)) 0 (->surface surface) array)
+	     (wl-keyboard-send-modifiers (->keyboard (client surface))
+					 0
+					 (mods-depressed *compositor*)
+					 (mods-latched *compositor*)
+					 (mods-locked *compositor*)
+					 (mods-group *compositor*)))
+	   (when (->xdg-surface surface)
+	     (setf (mem-aref (wl-array-add array 4) :int32) 4)
+	     (xdg-surface-send-configure (->xdg-surface surface) 0 0 array (get-milliseconds)))
+	   (wl-array-release array)
+	   (foreign-free array)))))))
 
 (defun call-mouse-motion-handler (time x y)
   (when (show-cursor *compositor*)
     (setf (render-needed *compositor*) t))
-  (mouse-motion-handler (current-mode) time x y))
+  ;;(mouse-motion-handler (current-mode) time x y))
+  (mouse-motion-handler (current-mode (current-view *compositor*)) time x y))
 
 ;; Should be able to have "active" window without raising (focus follows mouse)
 (defun call-mouse-button-handler (time button state)
-  (mouse-button-handler (current-mode) time button state))
+  ;;(mouse-button-handler (current-mode) time button state))
+  (mouse-button-handler (current-mode (current-view *compositor*)) time button state))
 
 (defun window-event-handler ()
   (new-xkb-state *compositor*)
   (setf (render-needed *compositor*) t))
 
 (defun call-keyboard-handler (time key state)
-  ;;(format t "call-keyboard-handler ~A ~A ~A~%" key state mods)
+  (format t "Key: ~A, state: ~A~%" key state)
+  (xkb:xkb-state-key-get-one-sym (xkb-state *compositor*) (+ key 8))
   (xkb:xkb-state-update-key (xkb-state *compositor*) (+ key 8) state)
-  (setf (mods-depressed *compositor*) (xkb:xkb-state-serialize-mods
-				       (xkb-state *compositor*) 1))
-  (setf (mods-latched *compositor*) (xkb:xkb-state-serialize-mods
-				       (xkb-state *compositor*) 2))
-  (setf (mods-locked *compositor*) (xkb:xkb-state-serialize-mods
-				       (xkb-state *compositor*) 4))
-  (setf (mods-group *compositor*) (xkb:xkb-state-serialize-layout
-				       (xkb-state *compositor*) 64))
+  (setf (mods-depressed *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 1))
+  (format t "Mods: ~A~%" (mods-depressed *compositor*))
+  (setf (mods-latched *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 2))
+  (setf (mods-locked *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 4))
+  (setf (mods-group *compositor*) (xkb:xkb-state-serialize-layout (xkb-state *compositor*) 64))
   (when (and (numberp key) (numberp state))
-    (keyboard-handler (current-mode) time key state)))
+    (keyboard-handler (current-mode (current-view *compositor*)) time key state)))
 
 (defun initialise ()
   (unwind-protect
@@ -202,24 +190,25 @@ Smooth animation with
 	 
 	 ;; Make our compositor class
 	 (setf *compositor* (make-instance 'compositor))
-	 (setf (render-fn *compositor*) 'render)
-	 (format t "Made compositor object~%")
 	 
 	 (when (probe-file "~/.ulubis.lisp")
 	   (load "~/.ulubis.lisp"))
 	 
 	 ;; Initialise backend
-	 (format t "Initialising backend: ~A~%" backend-name)
 	 (setf (backend *compositor*) (make-instance 'backend))
 	 (initialise-backend (backend *compositor*)
 			     (screen-width *compositor*)
 			     (screen-height *compositor*)
 			     (devices *compositor*))
-	 (format t "Backend initialised~%")
 	 
-	 ;; Initialise our default mode
-	 (setf *default-mode* (make-instance 'default-mode))
-	 (init-mode *default-mode*)
+	 ;; ulubis will attempt to run the function STARTUP
+	 ;; This should be defined in the user's ~/.ulubis.lisp
+	 ;; And is intended to set up things like the number
+	 ;; of virtual desktops (views), etc.
+	 (handler-case (startup)
+	   (undefined-function ()
+	     (push-view 'desktop-mode)
+	     (setf (current-view *compositor*) (first (views *compositor*)))))
 	 
 	 (register-mouse-motion-handler (backend *compositor*) 'call-mouse-motion-handler)
 	 (register-mouse-button-handler (backend *compositor*) 'call-mouse-button-handler)
@@ -263,6 +252,11 @@ Smooth animation with
 			   2
 			   (null-pointer)
 			   (callback output-bind))
+	 (wl-global-create (display *compositor*) 
+			   wl-subcompositor-interface
+			   1
+			   (null-pointer)
+			   (callback subcompositor-bind))
 	 
 	 ;; Initialise shared memory
 	 (wl-display-init-shm (display *compositor*))
@@ -277,7 +271,7 @@ Smooth animation with
       (setf (display *compositor*) nil))
     (destroy-backend (backend *compositor*))
     (setf *compositor* nil)
-    (format t "Exit compositor")))
+    (format t "Exit compositor~%")))
   
 (defun run-compositor ()
   (initialise))
