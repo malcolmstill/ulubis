@@ -27,7 +27,7 @@
 	     (when (and (render-needed *compositor*) (not (get-scheduled (backend *compositor*))))
 	       (draw-screen))
 	     (wl-display-flush-clients (display *compositor*))
-	     (wl-event-loop-dispatch event-loop 10)
+	     (wl-event-loop-dispatch event-loop -1)
 	     (animation::update-animations (lambda () (setf (render-needed *compositor*) t)))))))
 
 (defun main-loop-sdl (event-loop)
