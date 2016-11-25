@@ -1,5 +1,7 @@
 # Ulubis
 
+[![Join the chat at https://gitter.im/ulubis/Lobby](https://badges.gitter.im/ulubis/Lobby.svg)](https://gitter.im/ulubis/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 ![Ulubis in action](https://github.com/malcolmstill/ulubis/raw/master/ulubis.gif)
 
 Ulubis is a Wayland compositor written in Common Lisp.
