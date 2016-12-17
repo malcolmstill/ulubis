@@ -1,41 +1,9 @@
 
 (in-package :ulubis)
 
-#|
-(defclass surface-texture ()
-  ((width :accessor width :initarg :width :initform 0)
-   (height :accessor height :initarg :width :initform 0)))
-|#
-
-(defclass rect ()
+(defclass ulubis-surface (waylisp:wl-surface)
   ((x :accessor x :initarg :x :initform 0)
    (y :accessor y :initarg :y :initform 0)
-   (width :accessor width :initarg :width :initform 0)
-   (height :accessor height :initarg :height :initform 0)
-   (operation :accessor operation :initarg :operation :initform nil)))
-
-(defclass region ()
-  ((->region :accessor ->region :initarg :->region :initform nil)
-   (rects :accessor rects :initarg :rects :initform nil)))
-
-(defun find-region (->region client)
-  (find-if (lambda (region)
-	     (and (pointerp (->region region)) (pointer-eq (->region region) ->region)))
-	   (regions client)))
-
-(defclass surface ()
-  ((client :accessor client :initarg :client :initform nil)
-   (->surface :accessor ->surface :initarg :->surface :initform nil)
-   (->frame-callback :accessor ->frame-callback :initarg :->frame-callback :initform nil)
-   (->xdg-surface :accessor ->xdg-surface :initarg :->xdg-surface :initform nil)
-   (->xdg-popup :accessor ->xdg-popup :initarg :->xdg-popup :initform nil)
-   (->subsurface :accessor ->subsurface :initarg :->subsurface :initform nil)
-   (->buffer :accessor ->buffer :initarg :->buffer :initform nil)
-   (texture :accessor texture :initarg :texture :initform nil)
-   (x :accessor x :initarg :x :initform 0)
-   (y :accessor y :initarg :y :initform 0)
-   (width :accessor width :initarg :width :initform 0)
-   (height :accessor height :initarg :height :initform 0)
    (origin-x :accessor origin-x :initarg :origin-x :initform 0.0)
    (origin-y :accessor origin-y :initarg :origin-y :initform 0.0)
    (scale-x :accessor scale-x :initarg :scale-x :initform 1.0)
@@ -43,16 +11,41 @@
    (opacity :accessor opacity :initarg :opacity :initform 1.0)
    (effects :accessor effects :initarg :effects :initform nil)
    (committed :accessor committed :initarg :committed :initform nil)
-   (first-commit? :accessor first-commit? :initarg :first-commit? :initform t)
-   (cursor? :accessor cursor? :initarg :cursor? :initform nil)
-   (input-region :accessor input-region :initarg :input-region :initform nil)
-   (opaque-region :accessor opaque-region :initarg :opaque-region :initform nil)))
+   (first-commit? :accessor first-commit? :initarg :first-commit? :initform t)))
 
-(defclass client ()
-  ((->client :accessor ->client :initarg :->client :initform nil)
-   (regions :accessor regions :initarg :regions :initform nil)
-   (->pointer :accessor ->pointer :initarg :->pointer :initform nil)
-   (->keyboard :accessor ->keyboard :initarg :->keyboard :initform nil)))
+;; XDG
 
-(defun accepts-pointer-events? (surface)
-  (and surface (not (cursor? surface)) (->pointer (client surface))))
+(defclass ulubis-xdg-surface (ulubis-surface waylisp:xdg-surface)
+  ())
+
+(defun ulubis-xdg-surface? (surface)
+  (eql (class-of surface) (find-class 'ulubis-xdg-surface)))
+
+(defclass ulubis-xdg-popup (ulubis-surface waylisp:xdg-popup)
+  ())
+
+;; ZXDG
+
+(defclass ulubis-zxdg-surface (ulubis-surface waylisp:zxdg-surface)
+  ())
+
+(defun ulubis-zxdg-surface? (surface)
+  (eql (class-of surface) (find-class 'ulubis-zxdg-surface)))
+
+(defclass ulubis-zxdg-toplevel (ulubis-zxdg-surface waylisp:zxdg-toplevel)
+  ())
+
+(defun ulubis-zxdg-toplevel? (surface)
+  (eql (class-of surface) (find-class 'ulubis-zxdg-toplevel)))
+
+(defclass ulubis-zxdg-popup (ulubis-zxdg-surface waylisp:zxdg-popup)
+  ())
+
+(defclass ulubis-subsurface (ulubis-surface waylisp:wl-subsurface)
+  ())
+
+(defclass ulubis-cursor (ulubis-surface waylisp:wl-cursor)
+  ())
+
+(defun ulubis-cursor? (surface)
+  (eql (class-of surface) (find-class 'ulubis-cursor)))

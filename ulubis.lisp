@@ -8,9 +8,8 @@
     (with-screen (vs)
       (cepl:clear)
       (cepl:map-g #'passthrough-shader vs :texture texture)
-      (draw-cursor (pointer-x *compositor*)
-		   (pointer-y *compositor*)
-		   (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1 -1))
+      (gl:enable :blend)
+      (draw-cursor (cursor-surface *compositor*) nil (pointer-x *compositor*) (pointer-y *compositor*) (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1 -1))
       (swap-buffers (backend *compositor*))
       (setf (render-needed *compositor*) nil))))
 
@@ -50,110 +49,39 @@
 		   (process-events (backend *compositor*)))))))))
 
 (defun resize-surface-relative (surface view delta-x delta-y)
-  (with-slots (x y ->xdg-surface input-region) surface
-    (let ((width (width (first (last (rects input-region)))))
-	  (height (height (first (last (rects input-region))))))
-      (format t "Width: ~A, height: ~A, new width: ~A, new height: ~A~%" width height (+ width delta-x) (+ height delta-y))
-      (when (and ->xdg-surface (> (+ width delta-x) 32) (> (+ height delta-y) 32))
-	(let ((array (foreign-alloc '(:struct wl_array))))
-	  (wl-array-init array)
-	  (setf (mem-aref (wl-array-add array 4) :int32) 3)
-	  (when (equalp surface (active-surface view))
-	    (setf (mem-aref (wl-array-add array 4) :int32) 4))
-	  (xdg-surface-send-configure (->xdg-surface surface)
-				      (round (+ width delta-x))
-				      (round (+ height delta-y))
-				      array
-				      (get-milliseconds))
-	  (wl-array-release array)
-	  (foreign-free array))))))
+  (when (and (or (ulubis-zxdg-toplevel? surface) (ulubis-xdg-surface? surface)) (> (+ delta-x width) 32) (> (+ delta-y height) 32))
+    (if (equalp surface (active-surface view))
+	(waylisp:resize surface width height (get-milliseconds) :activate? t)
+	(waylisp:resize surface width height (get-milliseconds) :activate? nil))))
 
 (defun resize-surface-absolute (surface view width height)
-  (format t "Resize to ~Ax~A (~A,~A)~%" (round width) (round height) width height)
-  (with-slots (x y ->xdg-surface input-region) surface
-    (when (and ->xdg-surface (> width 32) (> height 32))
-      (let ((array (foreign-alloc '(:struct wl_array))))
-	(wl-array-init array)
-	(setf (mem-aref (wl-array-add array 4) :int32) 3)
-	(when (equalp surface (active-surface view))
-	  (setf (mem-aref (wl-array-add array 4) :int32) 4))
-	(xdg-surface-send-configure (->xdg-surface surface)
-				    (round width)
-				    (round height)
-				    array
-				    (get-milliseconds))
-	(wl-array-release array)
-	(foreign-free array)))))
+  (when (and (or (ulubis-zxdg-toplevel? surface) (ulubis-xdg-surface? surface)) (> width 32) (> height 32))
+    (if (equalp surface (active-surface view))
+	(waylisp:resize surface width height (get-milliseconds) :activate? t)
+	(waylisp:resize surface width height (get-milliseconds) :activate? nil))))
 
 (defun deactivate-surface (surface)
   (when surface
-    (when (->keyboard (client surface))
-      (wl-keyboard-send-leave (->keyboard (client surface)) 0 (->surface surface)))
-    (when (->xdg-surface surface)
-      (let ((array (foreign-alloc '(:struct wl_array))))
-	(wl-array-init array)
-	(xdg-surface-send-configure (->xdg-surface surface) 0 0 array (get-milliseconds))
-	(wl-array-release array)
-	(foreign-free array)))))
-
-#|
-(defun activate-surface (surface)
-  (cond
-    ;; No surface to activate
-    ((not surface) (progn
-		     (format t "No surface to activate~%")
-		     (deactivate-surface (active-surface *compositor*))
-		     (setf (active-surface *compositor*) nil)))
-    ;; Activating a non-active surface
-    ((and surface (not (cursor? surface)) (not (equalp surface (active-surface *compositor*))))
-     (progn
-       (deactivate-surface (active-surface *compositor*))
-       (setf (active-surface *compositor*) surface)
-       (let ((array (foreign-alloc '(:struct wl_array))))
-	 (wl-array-init array)
-	 (when (->keyboard (client surface))
-	   (wl-keyboard-send-enter (->keyboard (client surface)) 0 (->surface surface) array)
-	   (wl-keyboard-send-modifiers (->keyboard (client surface))
-				       0
-				       (mods-depressed *compositor*)
-				       (mods-latched *compositor*)
-				       (mods-locked *compositor*)
-				       (mods-group *compositor*)))
-	 (when (->xdg-surface surface)
-	   (setf (mem-aref (wl-array-add array 4) :int32) 4)
-	   (xdg-surface-send-configure (->xdg-surface surface) 0 0 array (get-milliseconds)))
-	 (wl-array-release array)
-	 (foreign-free array))))))
-|#
+    (waylisp:keyboard-send-leave surface)
+    (when (or (ulubis-xdg-surface? surface) (ulubis-zxdg-toplevel? surface))
+      (waylisp:deactivate surface (get-milliseconds)))))
 
 (defun activate-surface (surface view)
   (with-slots (active-surface) view
     (cond
       ;; No surface to activate
       ((not surface) (progn
-		       (format t "No surface to activate~%")
 		       (deactivate-surface active-surface)
 		       (setf active-surface nil)))
       ;; Activating a non-active surface
-      ((and surface (not (cursor? surface)) (not (equalp surface active-surface)))
+      ((and surface (not (waylisp:wl-cursor? surface)) (not (equalp surface active-surface)))
        (progn
 	 (deactivate-surface active-surface)
 	 (setf active-surface surface)
-	 (let ((array (foreign-alloc '(:struct wl_array))))
-	   (wl-array-init array)
-	   (when (->keyboard (client surface))
-	     (wl-keyboard-send-enter (->keyboard (client surface)) 0 (->surface surface) array)
-	     (wl-keyboard-send-modifiers (->keyboard (client surface))
-					 0
-					 (mods-depressed *compositor*)
-					 (mods-latched *compositor*)
-					 (mods-locked *compositor*)
-					 (mods-group *compositor*)))
-	   (when (->xdg-surface surface)
-	     (setf (mem-aref (wl-array-add array 4) :int32) 4)
-	     (xdg-surface-send-configure (->xdg-surface surface) 0 0 array (get-milliseconds)))
-	   (wl-array-release array)
-	   (foreign-free array)))))))
+	 (waylisp:keyboard-send-enter surface)
+	 (waylisp:keyboard-send-modifiers surface (mods-depressed *compositor*) (mods-latched *compositor*) (mods-locked *compositor*) (mods-group *compositor*))
+	 (when (or (ulubis-xdg-surface? surface) (ulubis-zxdg-toplevel? surface))
+	   (waylisp:activate surface (get-milliseconds))))))))
 
 (defun call-mouse-motion-handler (time x y)
   (when (show-cursor *compositor*)
@@ -171,11 +99,11 @@
   (setf (render-needed *compositor*) t))
 
 (defun call-keyboard-handler (time key state)
-  (format t "Key: ~A, state: ~A~%" key state)
+  ;; (format t "Key: ~A, state: ~A~%" key state)
   (xkb:xkb-state-key-get-one-sym (xkb-state *compositor*) (+ key 8))
   (xkb:xkb-state-update-key (xkb-state *compositor*) (+ key 8) state)
   (setf (mods-depressed *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 1))
-  (format t "Mods: ~A~%" (mods-depressed *compositor*))
+  ;; (format t "Mods: ~A~%" (mods-depressed *compositor*))
   (setf (mods-latched *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 2))
   (setf (mods-locked *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 4))
   (setf (mods-group *compositor*) (xkb:xkb-state-serialize-layout (xkb-state *compositor*) 64))
@@ -220,7 +148,8 @@
 	 (format t "Opened socket: ~A~%" (wl-display-add-socket-auto (display *compositor*)))
 	 
 	 (initialize-wayland-server-interfaces) 
-	 (initialize-xdg-shell-server-interfaces) 
+	 (initialize-xdg-shell-server-interfaces)
+	 (initialize-zxdg-shell-server-interfaces) 
 	 (set-implementations) 
 	 (wl-global-create (display *compositor*)
 			   wl-compositor-interface
@@ -232,11 +161,7 @@
 			   1
 			   (null-pointer)
 			   (callback shell-bind))
-	 (wl-global-create (display *compositor*)
-			   xdg-shell-interface
-			   1
-			   (null-pointer)
-			   (callback xdg-shell-bind))
+
 	 (wl-global-create (display *compositor*)
 			   wl-seat-interface
 			   4
@@ -257,11 +182,21 @@
 			   1
 			   (null-pointer)
 			   (callback subcompositor-bind))
+	 (wl-global-create (display *compositor*)
+			   zxdg-shell-v6-interface
+			   1
+			   (null-pointer)
+			   (callback zxdg-shell-v6-bind))
+	 (wl-global-create (display *compositor*)
+			   xdg-shell-interface
+			   1
+			   (null-pointer)
+			   (callback xdg-shell-bind))
 	 
 	 ;; Initialise shared memory
 	 (wl-display-init-shm (display *compositor*))
 	 ;; Run main loop
-	 (format t "Running main loop~%")
+	 ;; (format t "Running main loop~%")
 	 (setf (running *compositor*) t)
 	 (if (string-equal (symbol-name backend-name) "backend-drm-gbm")
 	     (main-loop-drm (wl-display-get-event-loop (display *compositor*)))
@@ -270,8 +205,7 @@
       (wl-display-destroy (display *compositor*))
       (setf (display *compositor*) nil))
     (destroy-backend (backend *compositor*))
-    (setf *compositor* nil)
-    (format t "Exit compositor~%")))
+    (setf *compositor* nil)))
   
 (defun run-compositor ()
   (initialise))

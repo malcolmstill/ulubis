@@ -11,46 +11,45 @@
 
 (defcallback commit :void
     ((client-ptr :pointer) (resource :pointer))
-  (let* ((client (find-client client-ptr *compositor*))
+  (let* ((client (waylisp:get-client client-ptr))
 	 (->surface (wl-resource-get-user-data resource))
 	 (surface (find-surface ->surface *compositor*)))
     (setf (committed surface) t)
     (create-texture surface)
-    (when (first-commit? surface)
+    (when (and (waylisp:->buffer surface) (first-commit? surface))
       (first-commit (current-mode (current-view *compositor*)) surface))
     (setf (render-needed *compositor*) t)))
 
 (defcallback attach :void
     ((client-ptr :pointer) (resource :pointer) (buffer :pointer) (x :int32) (y :int32))
-    (let* ((client (find-client client-ptr *compositor*))
+    (let* ((client (waylisp:get-client client-ptr))
 	   (->surface (wl-resource-get-user-data resource)))
-      ;;(format t "New buffer ~A~%" buffer)
-      (setf (->buffer (find-surface ->surface *compositor*)) buffer)))
+      (setf (waylisp:->buffer (find-surface ->surface *compositor*)) buffer)))
   
 (defcallback frame :void
     ((client-ptr :pointer) (resource :pointer) (callback :uint32))
   (let* ((->surface (wl-resource-get-user-data resource))
-	 (client (find-client client-ptr *compositor*))
+	 (client (waylisp:get-client client-ptr))
 	 (surface (find-surface ->surface *compositor*)))
     ;;(format t "Client ~A requesting frame callback on surface ~A ~%" client-ptr ->surface)
     ;; gnome-terminal requesting frame callback with no surface
     ;; or has multiple surfaces??
     (when client
-      (setf (->frame-callback surface) (wl-resource-create client-ptr wl-callback-interface 1 callback)))))
+      (setf (waylisp:->frame-callback surface) (wl-resource-create client-ptr wl-callback-interface 1 callback)))))
 
 (defcallback set-input-region :void
     ((->client :pointer) (resource :pointer) (region :pointer))
   (let* ((->surface (wl-resource-get-user-data resource))
 	 (surface (find-surface ->surface *compositor*)))
-   ;; (format t "Setting input region of ~A to  region ~A~%" ->surface region)
-    (setf (input-region surface) (find-region-of-client ->client region *compositor*))))
+    ;; (format t "Setting input region of ~A to  region ~A~%" ->surface region)
+    (setf (waylisp:input-region surface) (find-region-of-client ->client region *compositor*))))
 
 (defcallback set-opaque-region :void
     ((->client :pointer) (resource :pointer) (region :pointer))
   (let* ((->surface (wl-resource-get-user-data resource))
 	 (surface (find-surface ->surface *compositor*)))
     ;;(format t "Setting opaque region of ~A to  region ~A~%" ->surface region)
-    (setf (opaque-region surface) (find-region-of-client ->client region *compositor*))))
+    (setf (waylisp:opaque-region surface) (find-region-of-client ->client region *compositor*))))
 
 (defparameter surface-implementation
   (implement-wl-surface
@@ -76,12 +75,11 @@
 
 ;; Compositor
 (defcallback compositor-create-surface :void
-    ((client :pointer)
-     (resource :pointer)
-     (id :uint32)) 
-  (let* ((compositor-client (find-client client *compositor*))
+    ((client :pointer) (resource :pointer) (id :uint32)) 
+  (let* ((compositor-client (waylisp:get-client client))
 	 (new-surface (wl-resource-create client wl-surface-interface 3 id))
-	 (ulubis-surface (make-instance 'surface :->surface new-surface :client compositor-client)))
+	 (ulubis-surface (make-instance 'ulubis-surface :->surface new-surface :client compositor-client)))
+    (format t "Client: ~A~%" compositor-client)
     ;; We add the new surface to the compositor's global list of surfaces
     ;; and to the current view's subset of surfaces
     (push ulubis-surface (surfaces *compositor*))
@@ -95,16 +93,16 @@
 (defcallback region-add :void
     ((client :pointer) (resource :pointer) (x :int32) (y :int32) (width :int32) (height :int32))
   (let ((region (wl-resource-get-user-data resource))
-	(rect (make-instance 'rect :x x :y y :width width :height height :operation :add)))
+	(rect (make-instance 'waylisp:wl-rect :x x :y y :width width :height height :operation :add)))
     ;;      (format t "Region added to ~A (~d,~d,~d,~d)~%" region x y width height)
-    (push rect (rects (find-region-of-client client region *compositor*)))))
+    (push rect (waylisp:rects (find-region-of-client client region *compositor*)))))
 
 (defcallback region-subtract :void
     ((client :pointer) (resource :pointer) (x :int32) (y :int32) (width :int32) (height :int32))
   (let ((region (wl-resource-get-user-data resource))
-	(rect (make-instance 'rect :x x :y y :width width :height height :operation :subtract)))
+	(rect (make-instance 'waylisp:wl-rect :x x :y y :width width :height height :operation :subtract)))
     ;;    (format t "Region subtracted to ~A (~d,~d,~d,~d)~%" region x y width height)
-    (push rect (rects (find-region-of-client client region *compositor*)))))
+    (push rect (waylisp:rects (find-region-of-client client region *compositor*)))))
 
 (defparameter region-implementation (implement-wl-region
 				     :add (callback region-add)
@@ -113,10 +111,11 @@
 (defcallback compositor-create-region :void
     ((client :pointer) (resource :pointer) (id :uint32))
   ;;(format t "Called compositor create region ~%")
-  (let* ((compositor-client (find-client client *compositor*))
+  (let* ((compositor-client (waylisp:get-client client))
 	 (new-region (wl-resource-create client wl-region-interface 1 id))
-	 (region (make-instance 'region :->region new-region)))
-    (setf (regions compositor-client) (push region (regions compositor-client)))
+	 (region (make-instance 'waylisp:wl-region :->region new-region)))
+    ;;(setf (regions compositor-client) (push region (waylisp:regions compositor-client)))
+    (push region (waylisp:regions compositor-client))
   ;  (format t "Compositor create region~%")
     (wl-resource-set-implementation
      new-region
@@ -132,7 +131,8 @@
     ((client :pointer) (data :pointer) (version :uint32) (id :uint32))
   (format t "Binding compositor~%")
   (let ((resource (wl-resource-create client wl-compositor-interface 1 id)))
-    (wl-resource-set-implementation resource compositor-implementation (null-pointer) (null-pointer))))
+    (wl-resource-set-implementation resource compositor-implementation (null-pointer) (null-pointer))
+    ))
 ;; End compositor
 
 (defparameter shell-surface-implementation (implement-wl-shell-surface))
@@ -151,15 +151,16 @@
 
 ;; Vanilla wl-shell bind
 (defcallback shell-bind :void
-    ((client-ptr :pointer) (data :pointer) (version :uint32) (id :uint32))
-  (format t "~%shell-bind called ~%")
-  (let ((new-client (make-instance 'client :->client client-ptr)))
-    (push new-client (clients *compositor*))
-    (wl-resource-set-implementation
-     (wl-resource-create client-ptr wl-shell-interface 1 id)
-     shell-implementation
-     client-ptr
-     (callback client-destroy))))
+  ((client-ptr :pointer) (data :pointer) (version :uint32) (id :uint32))
+  (format t "~%shell-bind called: ~A~%" client-ptr)
+  (waylisp:get-client client-ptr)
+  (wl-resource-set-implementation
+   (wl-resource-create client-ptr wl-shell-interface 1 id)
+   shell-implementation
+   client-ptr
+   (callback client-destroy)))
+
+;;; XDG-SHELL
 
 (defcallback move :void
     ((client :pointer) (resource :pointer) (seat :pointer) (serial :uint32))
@@ -182,20 +183,23 @@
   )
 
 ;; Can redefine this live without redefining xdg-shell-get-xdg-surface
+#|
 (defparameter xdg-surface-implementation
   (implement-xdg-surface
    :move (callback move)
    :set-title (callback print-title)))
+|#
 
 (defcallback xdg-shell-get-xdg-surface :void
     ((client-ptr :pointer) (resource :pointer) (id :uint32) (_surface :pointer))
   (format t "Callback to get-xdg-surface~%")
   (let* ((surface-ptr (wl-resource-get-user-data _surface))
 	 (xdg-surface (wl-resource-create client-ptr xdg-surface-interface 1 id))
-	 (client (find-client client-ptr *compositor*))
+	 (client (waylisp:get-client client-ptr))
 	 (surface (find-surface surface-ptr *compositor*)))
     (format t "Surface: ~A~%" surface)
-    (setf (->xdg-surface surface) xdg-surface)
+    ;; (setf (->xdg-surface surface) xdg-surface)
+    (change-class surface 'ulubis-xdg-surface :->xdg-surface xdg-surface)
     (wl-resource-set-implementation
      xdg-surface
      xdg-surface-implementation
@@ -208,19 +212,22 @@
     (remove-surface surface-ptr *compositor*)
     (setf (render-needed *compositor*) t)))
 
+#|
 (defparameter xdg-popup-implementation
   (implement-xdg-popup
    :destroy (callback popup-destroy)))
+|#
 
 (defcallback xdg-shell-get-xdg-popup :void
     ((client-ptr :pointer) (resource :pointer) (id :uint32) (_surface :pointer) (parent :pointer) (seat :pointer) (serial :uint32) (x :int32) (y :int32))
   (format t "Callback to get-xdg-popup~%")
   (let* ((surface-ptr (wl-resource-get-user-data _surface))
 	 (xdg-popup (wl-resource-create client-ptr xdg-popup-interface 1 id))
-	 (client (find-client client-ptr *compositor*))
+	 (client (waylisp:get-client client-ptr))
 	 (surface (find-surface surface-ptr *compositor*))
 	 (parent-surface (find-surface parent *compositor*)))
-    (setf (->xdg-popup surface) xdg-popup)
+    ;; (setf (->xdg-popup surface) xdg-popup)
+    (change-class surface 'ulubis-xdg-popup :->xdg-popup xdg-popup)
     (setf (x surface) (+ (x parent-surface) x))
     (setf (y surface) (+ (y parent-surface) y))
     (wl-resource-set-implementation
@@ -229,39 +236,159 @@
      surface-ptr
      (null-pointer))))
 
+#|
 (defparameter xdg-shell-implementation
   (implement-xdg-shell
    :get-xdg-surface (callback xdg-shell-get-xdg-surface)
    :get-xdg-popup (callback xdg-shell-get-xdg-popup)))
+|#
 
 ;; We delete client here rather than in surface destroy callback
 ;; as a client may connect but not allocate a surface
 (defcallback client-destroy :void
     ((resource :pointer))
-  (let* ((->client (wl-resource-get-user-data resource))
-	 (client (find-client ->client *compositor*)))
-    (format t "Removing client ~A~%" client)
-					;      (when (equal (active-surface *compositor*) client)
-					;	(setf (active-client *compositor*) nil))
-    (remove-client ->client *compositor*)))
+  (let* ((->client (wl-resource-get-user-data resource)))
+    (format t "Removing client ~A~%" ->client)
+    (waylisp:remove-client ->client)))
 
 (defcallback xdg-shell-bind :void
     ((client-ptr :pointer) (data :pointer) (version :uint32) (id :uint32))
-  (format t "xdg-shell-bind called~%")
-  (let ((new-client (make-instance 'client :->client client-ptr)))
-    (push new-client (clients *compositor*))
+  (format t "xdg-shell-bind called: ~A~%" client-ptr)
+  (waylisp:get-client client-ptr)
+  (wl-resource-set-implementation
+   (wl-resource-create client-ptr xdg-shell-interface 1 id)
+   xdg-shell-implementation
+   client-ptr
+   (callback client-destroy)))
+
+
+#|
+(defcallback move :void
+    ((client :pointer) (resource :pointer) (seat :pointer) (serial :uint32))
+  (format t "Surface requested move~%")
+  (let* ((surface-ptr (wl-resource-get-user-data resource))
+	 (surface (find-surface surface-ptr *compositor*)))
+    (setf (moving-surface *compositor*) (make-move-op :surface surface
+						      :surface-x (x surface)
+						      :surface-y (y surface)
+						      :pointer-x (pointer-x *compositor*)
+						      :pointer-y (pointer-y *compositor*)))))
+|#
+
+(defparameter zxdg-toplevel-v6-implementation
+  (implement-zxdg-toplevel-v6
+   :move (callback move)
+   ;; :set-title (callback print-title)
+   ))
+
+(defcallback get-toplevel :void
+    ((client-ptr :pointer) (resource :pointer) (id :uint32))
+  (let* ((surface-ptr (wl-resource-get-user-data resource))
+	 (zxdg-toplevel (wl-resource-create client-ptr zxdg-toplevel-v6-interface (wl-resource-get-version resource) id))
+	 (surface (find-surface surface-ptr *compositor*)))
+    (change-class surface 'ulubis-zxdg-toplevel :->zxdg-toplevel zxdg-toplevel)
     (wl-resource-set-implementation
-     (wl-resource-create client-ptr xdg-shell-interface 1 id)
-     xdg-shell-implementation
-     client-ptr
-     (callback client-destroy))))
+     zxdg-toplevel
+     zxdg-toplevel-v6-implementation
+     surface-ptr
+     (null-pointer))
+    (let ((array (foreign-alloc '(:struct wl_array))))
+      (wl-array-init array)
+      (zxdg-toplevel-v6-send-configure zxdg-toplevel 0 0 array)
+      (zxdg-surface-v6-send-configure (waylisp:->zxdg-surface surface) 0))))
+
+;; Can redefine this live without redefining xdg-shell-get-xdg-surface
+(defparameter zxdg-surface-v6-implementation
+  (implement-zxdg-surface-v6
+   ;; :move (callback move)
+   ;; :set-title (callback print-title)
+   :get-toplevel (callback get-toplevel)
+   ;;:get-popup (callback get-popup)
+   ))
+
+#|
+xdg now has xdg-surface as a generic surface.
+|#
+(defcallback zxdg-shell-v6-get-xdg-surface :void
+    ((client-ptr :pointer) (resource :pointer) (id :uint32) (_surface :pointer))
+  (format t "Callback to get-xdg-surface~%")
+  (let* ((surface-ptr (wl-resource-get-user-data _surface))
+	 (zxdg-surface (wl-resource-create client-ptr zxdg-surface-v6-interface
+					  (wl-resource-get-version resource) id))
+	 (client (waylisp:get-client client-ptr))
+	 (surface (find-surface surface-ptr *compositor*)))
+    (format t "Surface: ~A~%" surface)
+    ;;(setf (->xdg-surface surface) xdg-surface)
+    (change-class surface 'ulubis-zxdg-surface :->zxdg-surface zxdg-surface)
+    (wl-resource-set-implementation
+     zxdg-surface
+     zxdg-surface-v6-implementation
+     surface-ptr
+     (null-pointer))))
+
+#|
+(defcallback popup-destroy :void
+    ((client-ptr :pointer) (resource :pointer))
+  (let ((surface-ptr (wl-resource-get-user-data resource)))
+    (remove-surface surface-ptr *compositor*)
+    (setf (render-needed *compositor*) t)))
+
+(defparameter xdg-popup-implementation
+  (implement-zxdg-popup-v6
+   :destroy (callback popup-destroy)))
+|#
+
+#|
+(defcallback xdg-shell-get-xdg-popup :void
+    ((client-ptr :pointer) (resource :pointer) (id :uint32) (_surface :pointer) (parent :pointer) (seat :pointer) (serial :uint32) (x :int32) (y :int32))
+  (format t "Callback to get-xdg-popup~%")
+  (let* ((surface-ptr (wl-resource-get-user-data _surface))
+	 (xdg-popup (wl-resource-create client-ptr zxdg-popup-v6-interface 1 id))
+	 (client (find-client client-ptr *compositor*))
+	 (surface (find-surface surface-ptr *compositor*))
+	 (parent-surface (find-surface parent *compositor*)))
+    ;; (setf (->xdg-popup surface) xdg-popup)
+    (change-class surface 'ulubis-xdg-popup :->xdg-popup xdg-popup)
+    (setf (x surface) (+ (x parent-surface) x))
+    (setf (y surface) (+ (y parent-surface) y))
+    (wl-resource-set-implementation
+     xdg-popup
+     xdg-popup-implementation
+     surface-ptr
+     (null-pointer))))
+|#
+
+(defparameter zxdg-shell-v6-implementation
+  (implement-zxdg-shell-v6
+   :get-xdg-surface (callback zxdg-shell-v6-get-xdg-surface)))
+   ;; :get-xdg-popup (callback xdg-shell-get-xdg-popup)))
+
+;; We delete client here rather than in surface destroy callback
+;; as a client may connect but not allocate a surface
+(defcallback client-destroy :void
+    ((resource :pointer))
+  (let* ((->client (wl-resource-get-user-data resource)))
+    (format t "Removing client ~A~%" ->client)
+    (waylisp:remove-client ->client)))
+
+(defcallback zxdg-shell-v6-bind :void
+    ((client-ptr :pointer) (data :pointer) (version :uint32) (id :uint32))
+  (format t "zxdg-shell-bind called: ~A~%" client-ptr)
+  (waylisp:get-client client-ptr)
+  (wl-resource-set-implementation
+   (wl-resource-create client-ptr zxdg-shell-v6-interface 1 id)
+   zxdg-shell-v6-implementation
+   client-ptr
+   (callback client-destroy)))
 
 (defcallback set-cursor :void
-    ((client-ptr :pointer) (resource :pointer) (serial :uint32) (surface-ptr :pointer) (hotspot-x :int32) (hotspot :int32))
-  (let ((surface (find-surface surface-ptr *compositor*)))
-    (when surface
-      (setf (cursor? surface) t)
-      (setf (cursor-surface *compositor*) surface))))
+    ((client-ptr :pointer) (resource :pointer) (serial :uint32) (surface-ptr :pointer) (hotspot-x :int32) (hotspot-y :int32))
+    (let ((surface (find-surface surface-ptr *compositor*)))
+      (when surface
+	(change-class surface 'ulubis-cursor)
+	(setf (x surface) hotspot-x)
+	(setf (y surface) hotspot-y)
+	(setf (cursor-surface *compositor*) surface))))
 
 ;; Pointer implementation
 (defparameter pointer-implementation (implement-wl-pointer
@@ -275,7 +402,7 @@
      pointer-implementation
      (null-pointer)
      (null-pointer))
-    (setf (->pointer (find-client client *compositor*)) pointer)))
+    (setf (waylisp:->pointer (waylisp:get-client client)) pointer)))
 
 ;; Keyboard implementation
 
@@ -284,16 +411,16 @@
 (defcallback get-keyboard :void
   ((client-ptr :pointer) (resource :pointer) (id :uint32))
   (let* ((keyboard (wl-resource-create client-ptr wl-keyboard-interface (wl-resource-get-version resource) id))
-	 (client (find-client client-ptr *compositor*)))
-    (format t "Keyboard resource is ~A~%" keyboard)
-    (format t "Client (~A) is ~A~%" client-ptr (find-client client-ptr *compositor*))
+	 (client (waylisp:get-client client-ptr)))
+    (format t "keyboard resource is ~A~%" keyboard)
+    (format t "Client (~A) is ~A~%" client-ptr client)
     (wl-resource-set-implementation
      keyboard
      keyboard-implementation
      (null-pointer)
      (null-pointer))
     (when client
-      (setf (->keyboard client) keyboard))
+      (setf (waylisp:->keyboard client) keyboard))
     (when (>= (wl-resource-get-version keyboard) 4)
       (wl-keyboard-send-repeat-info keyboard 30 200))
     (multiple-value-bind (fd size) (get-keymap *compositor*)
@@ -305,7 +432,7 @@
 
 (defcallback seat-bind :void
     ((client-ptr :pointer) (data :pointer) (version :uint32) (id :uint32))
-  (format t "seat-bind called~%")
+    (format t "seat-bind called ~A~%" client-ptr)
   (let ((seat (wl-resource-create client-ptr wl-seat-interface 4 id)))
     (wl-resource-set-implementation
      seat
@@ -338,7 +465,6 @@
   (format t "Mime-type offered: ~A~%" mime-type)
   )
 
-
 (defparameter data-source-implementation
   (implement-wl-data-source
    :offer (callback offer)))
@@ -347,8 +473,8 @@
     ((client-ptr :pointer) (resource :pointer) (id :uint32))
   (format t "Received create-data-source request~%")
   (let ((data-source (wl-resource-create client-ptr wl-data-source-interface
-					   (wl-resource-get-version resource)
-					   id)))
+					 (wl-resource-get-version resource)
+					 id)))
     (push data-source *data-sources*)
     (wl-resource-set-implementation
      data-source
@@ -387,21 +513,35 @@
 (defcallback output-bind :void
     ((client-ptr :pointer) (data :pointer) (version :uint32) (id :uint32))
   (let ((output (wl-resource-create client-ptr wl-output-interface 1 id)))
-    ;;(wl-output-send-scale output 1)
     (setf (->output *compositor*) output)))
 
+(defcallback set-position :void
+  ((client-ptr :pointer) (resource :pointer) (x :int) (y :int))
+  (let* ((surface-ptr (wl-resource-get-user-data resource))
+	 (surface (find-surface surface-ptr *compositor*)))
+    (when surface
+      (setf (x surface) x)
+      (setf (y surface) y))))
+
 (defparameter subsurface-implementation
-  (implement-wl-subsurface))
+  (implement-wl-subsurface
+   :set-position (callback set-position)))
 
 (defcallback subcompositor-get-subsurface :void
     ((client-ptr :pointer) (resource :pointer) (id :uint32) (_surface :pointer) (_parent :pointer))
   (format t "subcompositor-get-subsurface~%")
   (let* ((surface-ptr (wl-resource-get-user-data _surface))
+	 (parent-ptr (wl-resource-get-user-data _parent))
 	 (subsurface (wl-resource-create client-ptr wl-subsurface-interface (wl-resource-get-version resource) id))
-	 (client (find-client client-ptr *compositor*))
-	 (surface (find-surface surface-ptr *compositor*)))
-    (format t "subcomp~%")
-    (setf (->subsurface surface) subsurface)
+	 (client (waylisp:get-client client-ptr))
+	 (surface (find-surface surface-ptr *compositor*))
+	 (parent (find-surface parent-ptr *compositor*)))
+    ;; (setf (waylisp:->subsurface surface) subsurface)
+    (change-class surface 'ulubis-subsurface :->subsurface subsurface :parent parent)
+    (push surface (waylisp:subsurfaces parent))
+    (mapcar (lambda (view)
+	      (remove-surface-from-view surface view))
+	    (views-with-surface surface))
     (wl-resource-set-implementation
      subsurface
      subsurface-implementation
@@ -444,6 +584,7 @@
 
   (defparameter shell-implementation (implement-wl-shell
 				      :get-shell-surface (callback shell-get-shell-surface)))
+
   
   (defparameter xdg-surface-implementation
     (implement-xdg-surface
@@ -459,6 +600,25 @@
     (implement-xdg-shell
      :get-xdg-surface (callback xdg-shell-get-xdg-surface)
      :get-xdg-popup (callback xdg-shell-get-xdg-popup)))
+  
+
+  (defparameter zxdg-toplevel-v6-implementation
+    (implement-zxdg-toplevel-v6
+     :move (callback move)
+     ;;:set-title (callback print-title)
+     ))
+
+  (defparameter zxdg-surface-v6-implementation
+    (implement-zxdg-surface-v6
+     ;; :move (callback move)
+     ;; :set-title (callback print-title)
+     :get-toplevel (callback get-toplevel)
+     ;;:get-popup (callback get-popup)
+     ))
+  
+  (defparameter zxdg-shell-v6-implementation
+    (implement-zxdg-shell-v6
+     :get-xdg-surface (callback zxdg-shell-v6-get-xdg-surface)))
   
   (defparameter pointer-implementation (implement-wl-pointer
 					:set-cursor (callback set-cursor)))
@@ -484,7 +644,8 @@
      :get-data-device (callback get-data-device)))
 
   (defparameter subsurface-implementation
-    (implement-wl-subsurface))
+    (implement-wl-subsurface
+     :set-position (callback set-position)))
   
   (defparameter subcompositor-implementation
     (implement-wl-subcompositor

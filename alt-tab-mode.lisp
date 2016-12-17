@@ -21,8 +21,8 @@
 
 (defmethod init-mode ((mode alt-tab-mode))
   (setf (surfaces mode) (remove-if (lambda (surface)
-				     (or (not (texture surface))
-					 (cursor? surface)))
+				     (or (not (waylisp:texture surface))
+					 (ulubis-cursor? surface)))
 				   (surfaces (view mode))))
   (setf (projection mode) (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1000 -1000))
   (setf (iso-animation mode) (enter-animation mode))
@@ -80,7 +80,7 @@
 
     (mapcar (lambda (surface o)
 	      (with-blending (blending-parameters mode)
-	      (with-rect (vs (width surface) (height surface))
+	      (with-rect (vs (waylisp:width surface) (waylisp:height surface))
 ;;	      (with-surface (vs tex mode surface :z (+ (* (- o) spacing) 100))
 		(let ((tex (texture-of surface)))
 		  (map-g-default/fbo view-fbo #'alt-tab-pipeline vs

@@ -66,31 +66,29 @@
       (nix:munmap map size)
       (values fd size))))
 
+#|
 (defun find-client (client-pointer compositor)
   (find-if (lambda (client)
-	     (and (pointerp (->client client)) (pointer-eq (->client client) client-pointer)))
+	     (and (pointerp (waylisp:->client client)) (pointer-eq (waylisp:->client client) client-pointer)))
 	   (clients compositor)))
+|#
 
 (defun find-surface (surface-pointer compositor)
   (find-if (lambda (surface)
-	     (and (pointerp (->surface surface)) (pointer-eq (->surface surface) surface-pointer)))
+	     (and (pointerp (waylisp:->surface surface)) (pointer-eq (waylisp:->surface surface) surface-pointer)))
 	   (surfaces compositor)))
 
 (defun find-region-of-client (->client ->region compositor)
-  (find-region ->region (find-client ->client compositor)))
+  (waylisp:find-region ->region (waylisp:get-client ->client)))
 
 (defun find-client-with-surface (surface-pointer compositor)
   (find-if (lambda (client)
 	     (find-if (lambda (surface)
-			(and (pointerp (->surface surface)) (pointer-eq (->surface surface) surface-pointer)))
+			(and (pointerp (waylisp:->surface surface)) (pointer-eq (waylisp:->surface surface) surface-pointer)))
 		      (surfaces client)))
 	   (clients compositor)))
 
-(defun remove-client (client-pointer compositor)
-  (let ((client (find-client client-pointer compositor)))
-    (setf (clients compositor) (remove-if (lambda (client)
-					    (and (pointerp (->client client)) (pointer-eq (->client client) client-pointer)))
-					  (clients compositor)))))
+
 
 (defun view-has-surface? (surface view)
   (when (find surface (surfaces view))
@@ -144,30 +142,34 @@
 (defun pointer-over-input-region-p (pointer-x pointer-y surface-w/input-region)
   (let ((global-x (x surface-w/input-region))
 	(global-y (y surface-w/input-region))
-	(rects (rects (input-region surface-w/input-region))))
+	(rects (waylisp:rects (waylisp:input-region surface-w/input-region))))
     (loop :for rect :in rects
-       :do (with-slots (x y width height operation) rect
-	     (case operation
-	       (:add (when (pointer-over-p (- pointer-x global-x) (- pointer-y global-y) x y width height)
+       :do (with-slots (waylisp:x waylisp:y waylisp:width waylisp:height waylisp:operation) rect
+	     (case waylisp:operation
+	       (:add (when (pointer-over-p (- pointer-x global-x) (- pointer-y global-y) waylisp:x waylisp:y waylisp:width waylisp:height)
 		       (return-from pointer-over-input-region-p t)))
-	       (:subtract (when (pointer-over-p (- pointer-x global-x) (- pointer-y global-y) x y width height)
+	       (:subtract (when (pointer-over-p (- pointer-x global-x) (- pointer-y global-y) waylisp:x waylisp:y waylisp:width waylisp:height)
 			    (return-from pointer-over-input-region-p nil))))))
     nil))
 
-(defun pointer-over-surface-p (pointer-x pointer-y surface)
-  (with-slots (x y width height) surface
-    (pointer-over-p pointer-x pointer-y x y width height)))
+(defmethod pointer-over-surface-p ((surface ulubis-surface) pointer-x pointer-y)
+  (with-slots (x y waylisp:width waylisp:height) surface
+    (pointer-over-p pointer-x pointer-y x y waylisp:width waylisp:height)))
+
+(defmethod pointer-over-surface-p ((surface ulubis-cursor) pointer-x pointer-y)
+  nil)
 
 (defun surface-under-pointer (x y view)
   (find-if (lambda (surface)
-	     (or (and (pointer-over-surface-p x y surface) ;; pointer is over client and has no input-region
-		      (not (input-region surface)))
-		 (and (pointer-over-surface-p x y surface) ;; or pointer is over client, has an input-region, and pointer is over input-region
-		      (input-region surface)
+	     (or (and (pointer-over-surface-p surface x y) ;; pointer is over client and has no input-region
+		      (not (waylisp:input-region surface)))
+		 (and (pointer-over-surface-p surface x y) ;; or pointer is over client, has an input-region, and pointer is over input-region
+		      (waylisp:input-region surface)
 		      (pointer-over-input-region-p x y surface))))
 	   (surfaces view)))      
 
 ;; TODO: support input-region
+#|
 (defun surface-quadrant (pointer-x pointer-y surface)
   (with-slots (x y width height input-region) surface
     (let ((half-width (round (/ width 2)))
@@ -181,4 +183,4 @@
 	 :bottom-right)
 	((and (<= pointer-x (+ x half-width)) (>= pointer-y (+ y half-height)))
 	 :bottom-left)))))
-      
+|#      

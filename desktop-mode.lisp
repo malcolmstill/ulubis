@@ -2,6 +2,7 @@
 (in-package :ulubis)
 
 (defparameter *default-mode* nil)
+(defparameter *ortho* (m4:identity))
 
 (defmode desktop-mode ()
   ((clear-color :accessor clear-color :initarg :clear-color :initform (list 0.3 0.3 0.3 0.0))
@@ -9,7 +10,7 @@
    (focus-follows-mouse :accessor focus-follows-mouse :initarg :focus-follows-mouse :initform nil)))
 
 (defmethod init-mode ((mode desktop-mode))
-  (setf (projection mode) (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1 -1))
+  (setf *ortho* (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1 -1))
   (map-g #'mapping-pipeline nil)
   (setf (render-needed *compositor*) t))
 
@@ -32,30 +33,31 @@
 
 (defun pointer-changed-surface (mode x y old-surface new-surface)
   (setf (cursor-surface *compositor*) nil)
+  ;; (format t "Pointer changed service~%")
   (when (focus-follows-mouse mode)
     (deactivate-surface old-surface)) 
-  (when (accepts-pointer-events? old-surface)
-    (wl-pointer-send-leave (->pointer (client old-surface))
+  (when (waylisp:accepts-pointer-events? old-surface)
+    (wl-pointer-send-leave (waylisp:->pointer (waylisp:client old-surface))
 			   0
-			   (->surface old-surface)))
+			   (waylisp:->surface old-surface)))
   (setf (pointer-surface *compositor*) new-surface)
   (when (focus-follows-mouse mode)
     (activate-surface new-surface (view mode)))
-  (when (accepts-pointer-events? new-surface)
-    (wl-pointer-send-enter (->pointer (client new-surface))
+  (when (waylisp:accepts-pointer-events? new-surface)
+    (wl-pointer-send-enter (waylisp:->pointer (waylisp:client new-surface))
 			   0
-			   (->surface new-surface)
+			   (waylisp:->surface new-surface)
 			   (round (* 256 (- x (x new-surface))))
 			   (round (* 256 (- y (y new-surface)))))))
 
 (defun send-surface-pointer-motion (x y time surface)
-  (when (accepts-pointer-events? surface)
-    (wl-pointer-send-motion (->pointer (client surface))
+  (when (waylisp:accepts-pointer-events? surface)
+    (wl-pointer-send-motion (waylisp:->pointer (waylisp:client surface))
 			    time
 			    (round (* 256 (- x (x surface))))
 			    (round (* 256 (- y (y surface)))))
     ;; Need to check client handles version 5
-    ;;(wl-pointer-send-frame (->pointer (client surface)))))
+    ;;(wl-pointer-send-frame (waylisp:->pointer (waylisp:client surface)))
     ))
 
 (defun update-pointer (delta-x delta-y)
@@ -90,8 +92,8 @@
 	 (send-surface-pointer-motion pointer-x pointer-y time current-surface))))))
 
 (defun pulse-animation (surface)
-  (setf (origin-x surface) (/ (width surface) 2))
-  (setf (origin-y surface) (/ (height surface) 2))
+  (setf (origin-x surface) (/ (waylisp:width surface) 2))
+  (setf (origin-y surface) (/ (waylisp:height surface) 2))
   (sequential-animation nil
 			(parallel-animation nil
 					    (animation :duration 100 :easing-fn 'easing:linear :to 1.05 :target surface :property 'scale-x)
@@ -105,12 +107,12 @@
   (when (and (= button #x110) (= state 1) (= 0 (mods-depressed *compositor*)))
     (let ((surface (surface-under-pointer (pointer-x *compositor*) (pointer-y *compositor*) (view mode))))
       ;; When we click on a client which isn't the first client
-      (when (and surface (not (equalp surface (active-surface (view mode)))) (not (cursor? surface)))
+      (when (and surface (not (equalp surface (active-surface (view mode)))) (not (ulubis-cursor? surface)))
 	(start-animation (pulse-animation surface) :finished-fn (lambda ()
 								  (setf (origin-x surface) 0.0)
 								  (setf (origin-y surface) 0.0))))
       (activate-surface surface (view mode))
-      (when (and surface (not (cursor? surface)))
+      (when (and surface (not (eql (find-class 'waylisp:wl-cursor) (class-of surface))))
 	(raise-surface surface (view mode))
 	(setf (render-needed *compositor*) t))))
   
@@ -132,13 +134,13 @@
   ;; Resize window
   (when (and (= button #x110) (= state 1) (= (+ Gui Shift) (mods-depressed *compositor*)))
     (let ((surface (surface-under-pointer (pointer-x *compositor*) (pointer-y *compositor*) (view mode))))
-      (when (and surface (->xdg-surface surface))
-	(let ((width (if (input-region surface)
-			 (width (first (last (rects (input-region surface)))))
-			 (width surface)))
-	      (height (if (input-region surface)
-			  (height (first (last (rects (input-region surface)))))
-			  (height surface))))
+      (when (or (ulubis-xdg-surface? surface) (ulubis-zxdg-toplevel? surface))
+	(let ((width (if (waylisp:input-region surface)
+			 (waylisp:width (first (last (waylisp:rects (waylisp:input-region surface)))))
+			 (waylisp:width surface)))
+	      (height (if (waylisp:input-region surface)
+			  (waylisp:height (first (last (waylisp:rects (waylisp:input-region surface)))))
+			  (waylisp:height surface))))
 	  (setf (resizing-surface *compositor*) (make-resize-op :surface surface
 								:pointer-x (pointer-x *compositor*)
 								:pointer-y (pointer-y *compositor*)
@@ -155,8 +157,8 @@
     (let ((surface (surface-under-pointer (pointer-x *compositor*)
 			       (pointer-y *compositor*)
 			       (view mode)) ))
-      (when (accepts-pointer-events? surface)
-	(wl-pointer-send-button (->pointer (client surface))
+      (when (waylisp:accepts-pointer-events? surface)
+	(wl-pointer-send-button (waylisp:->pointer (waylisp:client surface))
 				0
 				time
 				button
@@ -194,51 +196,107 @@
 	(setf (current-view *compositor*) (nth (- pos 1) views)))))
   (setf (render-needed *compositor*) t))
 
-(defmethod first-commit ((mode desktop-mode) surface)
-  (when (and (> (width surface) 0) (> (height surface) 0))
-    (let ((animation (sequential-animation
-		      (lambda ()
-			(setf (origin-x surface) 0.0)
-			(setf (origin-y surface) 0.0))
-		      (animation :target surface
+(defmethod first-commit ((mode desktop-mode) (surface ulubis-xdg-surface))
+  (let ((animation (sequential-animation
+		    (lambda ()
+		      (setf (origin-x surface) 0.0)
+		      (setf (origin-y surface) 0.0))
+		    (animation :target surface
 			       :property 'scale-x
 			       :easing-fn 'easing:out-exp
 			       :from 0
 			       :to 1.0
-			       :duration 500)
-		      (animation :target surface
-				 :property 'scale-y
-				 :easing-fn 'easing:out-exp
-				 :to 1.0
-				 :duration 500))))
-      (setf (origin-x surface) (/ (width surface) 2))
-      (setf (origin-y surface) (/ (height surface) 2))
-      (setf (scale-y surface) (/ 6 (height surface)))
-      (start-animation animation))))
+			       :duration 250)
+		    (animation :target surface
+			       :property 'scale-y
+			       :easing-fn 'easing:out-exp
+			       :to 1.0
+			       :duration 250))))
+    (setf (origin-x surface) (/ (waylisp:width surface) 2))
+    (setf (origin-y surface) (/ (waylisp:height surface) 2))
+    (setf (scale-y surface) (/ 6 (waylisp:height surface)))
+    (start-animation animation)))
 
-(defun-g desktop-mode-vertex-shader ((vert g-pt) &uniform (ortho :mat4) (origin :mat4) (origin-inverse :mat4) (surface-scale :mat4) (surface-translate :mat4))
-  (values (* ortho surface-translate origin-inverse surface-scale origin (v! (pos vert) 1))
+(defmethod first-commit ((mode desktop-mode) (surface ulubis-zxdg-surface))
+  (let ((animation (sequential-animation
+		    (lambda ()
+		      (setf (origin-x surface) 0.0)
+		      (setf (origin-y surface) 0.0))
+		    (animation :target surface
+			       :property 'scale-x
+			       :easing-fn 'easing:out-exp
+			       :from 0
+			       :to 1.0
+			       :duration 250)
+		    (animation :target surface
+			       :property 'scale-y
+			       :easing-fn 'easing:out-exp
+			       :to 1.0
+			       :duration 250))))
+    (setf (origin-x surface) (/ (waylisp:width surface) 2))
+    (setf (origin-y surface) (/ (waylisp:height surface) 2))
+    (setf (scale-y surface) (/ 6 (waylisp:height surface)))
+    (start-animation animation)))
+
+(defmethod first-commit ((mode desktop-mode) (surface ulubis-subsurface))
+  ;; only animate the parent surface
+  )
+
+(defmethod first-commit ((mode desktop-mode) (surface ulubis-cursor))
+  ;; don't animate ulubis-cursor
+  )
+
+(defun-g desktop-mode-vertex-shader ((vert g-pt) &uniform (origin :mat4) (origin-inverse :mat4) (surface-scale :mat4) (surface-translate :mat4))
+  (values (* *ortho* surface-translate origin-inverse surface-scale origin (v! (pos vert) 1))
 	  (:smooth (tex vert))))
 
 (def-g-> mapping-pipeline ()
   #'desktop-mode-vertex-shader #'default-fragment-shader)
 
+(defmethod render ((surface ulubis-surface) &optional view-fbo)
+  (when (waylisp:texture surface)
+    (with-rect (vertex-stream (waylisp:width surface) (waylisp:height surface))
+      (let ((texture (texture-of surface)))
+	(gl:viewport 0 0 (screen-width *compositor*) (screen-height *compositor*))
+	(map-g-default/fbo view-fbo #'mapping-pipeline vertex-stream
+			   :origin (m4:translation (v! (- (origin-x surface)) (- (origin-y surface)) 0))
+			   :origin-inverse (m4:translation (v! (origin-x surface) (origin-y surface) 0))
+			   :surface-scale (m4:scale (v! (scale-x surface) (scale-y surface) 1.0))
+			   :surface-translate (m4:translation (v! (x surface) (y surface) 0.0))
+			   :texture texture
+			   :alpha (opacity surface))))
+    (loop :for subsurface :in (waylisp:subsurfaces surface)
+       :do (render subsurface view-fbo))))
+
+(defmethod render ((surface ulubis-subsurface) &optional view-fbo)
+  (when (waylisp:texture surface)
+    (with-rect (vertex-stream (waylisp:width surface) (waylisp:height surface))
+      (let ((texture (texture-of surface)))
+	(gl:viewport 0 0 (screen-width *compositor*) (screen-height *compositor*))
+	(map-g-default/fbo view-fbo #'mapping-pipeline vertex-stream
+			   :origin (m4:translation (v! (+ (x surface) (- (origin-x (waylisp:parent surface))))
+						       (+ (y surface) (- (origin-y (waylisp:parent surface)))) 0))
+			   :origin-inverse (m4:translation (v! (+ (- (x surface)) (origin-x (waylisp:parent surface)))
+							       (+ (- (y surface)) (origin-y (waylisp:parent surface))) 0))
+			   :surface-scale (m4:scale (v! (scale-x (waylisp:parent surface))
+							(scale-y (waylisp:parent surface)) 1.0))
+			   :surface-translate (m4:translation (v!
+							       (+ (x (waylisp:parent surface)) (x surface))
+							       (+ (y (waylisp:parent surface)) (y surface))
+							       0.0))
+			   :texture texture
+			   :alpha (opacity surface))))
+    (loop :for subsurface :in (waylisp:subsurfaces surface)
+       :do (render subsurface view-fbo))))
+
+(defmethod render ((cursor ulubis-cursor) &optional view-fbo)
+  nil)
+
 (defmethod render ((mode desktop-mode) &optional view-fbo)
   (apply #'gl:clear-color (clear-color mode))
   (when view-fbo
     (cepl:clear view-fbo))
-  (mapcar (lambda (surface)
-	    (when (and (texture surface) (not (cursor? surface)))
-	      (with-blending (blending-parameters mode)
-		(with-rect (vertex-stream (width surface) (height surface))
-		  (let ((texture (texture-of surface)))
-		    (gl:viewport 0 0 (screen-width *compositor*) (screen-height *compositor*))
-		    (map-g-default/fbo view-fbo #'mapping-pipeline vertex-stream
-				       :ortho (projection mode)
-				       :origin (m4:translation (v! (- (origin-x surface)) (- (origin-y surface)) 0))
-				       :origin-inverse (m4:translation (v! (origin-x surface) (origin-y surface) 0))
-				       :surface-scale (m4:scale (v! (scale-x surface) (scale-y surface) 1.0))
-				       :surface-translate (m4:translation (v! (x surface) (y surface) 0.0))
-				       :texture texture
-				       :alpha (opacity surface)))))))
-	  (reverse (surfaces (view mode)))))
+  (with-blending (blending-parameters mode)
+    (mapcar (lambda (surface)
+	      (render surface view-fbo))
+	    (reverse (surfaces (view mode))))))
