@@ -15,14 +15,14 @@ Ulubis is known to work with sbcl and ccl. I have only tested it on two machines
 ## Roadmap
 
 The vague roadmap for ulubis is as follows (not necessarily in order):
-- [] Add (an at least rudimentary) menu system
-- [] Server-side decorations
-- [] Add screen locking
-- [] Add screenshooting and video capture
-- [] Support multiple monitors
-- [] Support more (most?) Wayland clients
-- [] XWayland support
-- [] Potentially define custom Wayland protocols for ulubis (maybe you want to replace a built-in menu with your own menu written in QML)
+- [ ] Add (an at least rudimentary) menu system
+- [ ] Server-side decorations
+- [ ] Add screen locking
+- [ ] Add screenshooting and video capture
+- [ ] Support multiple monitors
+- [ ] Support more (most?) Wayland clients
+- [ ] XWayland support
+- [ ] Potentially define custom Wayland protocols for ulubis (maybe you want to replace a built-in menu with your own menu written in QML)
 
 ## Dependencies
 
