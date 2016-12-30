@@ -54,7 +54,7 @@ The dependencies for the SDL2 backend are:
 ## Installation of ulubis (currently SBCL only though the code is known to work with CCL)
 
 - Ensure you have SBCL and Quicklisp installed.
-- Download the [latest release](https://github.com/malcolmstill/ulubis/files/679316/ulubis-release-0.1.zip)
+- Download the [latest release (ulubis-release-0.1)](https://github.com/malcolmstill/ulubis/files/679316/ulubis-release-0.1.zip)
 - Unzip the archive
 - `cd ulubis-release-0.1`
 - `sh build-ulubis.sh` (or `sh build-ulubis-sdl.sh`)
