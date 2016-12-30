@@ -51,48 +51,15 @@ The dependencies for the SDL2 backend are:
 - SDL2
 - [cepl.sdl2](https://github.com/cbaggers/cepl.sdl2)
 
-## Installation of ulubis (the following will work pending inclusion of ulubis on quicklisp)
+## Installation of ulubis (currently SBCL only though the code is known to work with CCL)
 
-From a terminal run sbcl (or ccl) and issue the commands `(ql:quickload :ulubis)` followed by `(ulubis::build)`, for example (you may see more output):
-```
-[malcolm@sense-amid-madness-wit-amidst-folly cl-libinput]$ sbcl
-This is SBCL 1.3.4-1.fc24, an implementation of ANSI Common Lisp.
-More information about SBCL is available at <http://www.sbcl.org/>.
+- Ensure you have SBCL and Quicklisp installed.
+- Download the [latest release](https://github.com/malcolmstill/ulubis/files/679316/ulubis-release-0.1.zip)
+- Unzip the archive
+- `cd ulubis-release-0.1`
+- `sh build-ulubis.sh` (or `sh build-ulubis-sdl.sh`)
 
-SBCL is free software, provided as is, with absolutely no warranty.
-It is mostly in the public domain; some portions are provided under
-BSD-style licenses.  See the CREDITS and COPYING files in the
-distribution for more information.
-* (ql:quickload :ulubis)
-To load "ulubis":
-  Load 1 ASDF system:
-    ulubis
-; Loading "ulubis"
-...............................................
-; recompile cpu side of (CURSOR-PIPELINE ...)
-..
-; recompile cpu side of (DEFAULT-PIPELINE ...)
-....
-; recompile cpu side of (ALT-TAB-PIPELINE ...)
-.
-(:ULUBIS)
-* (ulubis::build)
-To load "ulubis-drm-gbm":
-  Load 1 ASDF system:
-    ulubis-drm-gbm
-; Loading "ulubis-drm-gbm"
-.
-Building ulubis with DRM backend
-[undoing binding stack and other enclosing state... done]
-[saving current Lisp image into ulubis:
-writing 4800 bytes from the read-only space at 0x20000000
-writing 18192 bytes from the static space at 0x20100000
-writing 92176384 bytes from the dynamic space at 0x1000000000
-done]
-```
-This will generate the `ulubis` executable in the current directory which uses the DRM backend.
-
-Alternatively you can issues `(ulubis::build-sdl)` in place of `(ulubis::build)` to generate an executable that uses the SDL backend which can be run on X.
+This will generate the `ulubis` (or `ulubis-sdl` if `ulubis-build-sdl.sh` is used)  executable in the current directory which uses the DRM backend.
 
 ## Running ulubis
 
