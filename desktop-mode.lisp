@@ -251,7 +251,7 @@
 	  (:smooth (tex vert))))
 
 (def-g-> mapping-pipeline ()
-  #'desktop-mode-vertex-shader #'default-fragment-shader)
+  (desktop-mode-vertex-shader g-pt) (default-fragment-shader :vec2))
 
 (defmethod render ((surface ulubis-surface) &optional view-fbo)
   (when (waylisp:texture surface)

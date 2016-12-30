@@ -66,7 +66,7 @@
       (* alpha (s~ (texture texture tex-coord) :w))))
 
 (def-g-> alt-tab-pipeline ()
-  #'alt-tab-vertex-shader #'alt-tab-frag)
+  (alt-tab-vertex-shader g-pt) (alt-tab-frag :vec2))
 
 (defmethod render ((mode alt-tab-mode) &optional view-fbo)
   (let* ((drawable-surfaces (surfaces mode))

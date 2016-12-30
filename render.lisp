@@ -239,7 +239,7 @@
   (texture texture tex-coord))
 
 (def-g-> passthrough-shader ()
-  #'passthrough-vert #'passthrough-frag)
+  (passthrough-vert g-pt) (passthrough-frag :vec2))
 
 (defun-g default-vertex-shader ((vert g-pt) &uniform (ortho :mat4) (surface-scale :mat4) (surface-translate :mat4))
   (values (* ortho surface-translate surface-scale (v! (pos vert) 1))
@@ -254,7 +254,7 @@
 	  (:smooth (tex vert))))
 
 (def-g-> ulubis-cursor-pipeline ()
-  #'ulubis-cursor-vertex-shader #'default-fragment-shader)
+  (ulubis-cursor-vertex-shader g-pt) (default-fragment-shader :vec2))
     
 (defmethod draw-cursor ((surface ulubis-cursor) fbo x y ortho)
   (when (waylisp:texture surface)
@@ -278,7 +278,7 @@
   color)
 
 (def-g-> cursor-pipeline ()
-  #'cursor-vertex-shader #'cursor-fragment-shader)
+  (cursor-vertex-shader :vec3) (cursor-fragment-shader :vec4))
     
 (defmethod draw-cursor ((cursor (eql nil)) fbo x y ortho)
   (let* ((array (make-gpu-array
