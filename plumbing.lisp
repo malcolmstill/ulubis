@@ -9,8 +9,7 @@
 ;; functions return null pointers (why?). Therefore we can have toplevel callbacks
 ;; but when the program is run we need to initialise the implementations.
 
-(defcallback commit :void
-    ((client-ptr :pointer) (resource :pointer))
+(defcallback commit :void ((client-ptr :pointer) (resource :pointer))
   (let* ((client (waylisp:get-client client-ptr))
 	 (->surface (wl-resource-get-user-data resource))
 	 (surface (find-surface ->surface *compositor*)))
@@ -74,12 +73,10 @@
     (format t "Deleting surface ~A~%" surface)))
 
 ;; Compositor
-(defcallback compositor-create-surface :void
-    ((client :pointer) (resource :pointer) (id :uint32)) 
+(defcallback compositor-create-surface :void ((client :pointer) (resource :pointer) (id :uint32)) 
   (let* ((compositor-client (waylisp:get-client client))
 	 (new-surface (wl-resource-create client wl-surface-interface 3 id))
 	 (ulubis-surface (make-instance 'ulubis-surface :->surface new-surface :client compositor-client)))
-    (format t "Client: ~A~%" compositor-client)
     ;; We add the new surface to the compositor's global list of surfaces
     ;; and to the current view's subset of surfaces
     (push ulubis-surface (surfaces *compositor*))

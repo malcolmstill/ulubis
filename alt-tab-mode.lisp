@@ -62,7 +62,9 @@
 	  (:smooth (tex vert))))
 
 (defun-g alt-tab-frag ((tex-coord :vec2) &uniform (texture :sampler-2d) (alpha :float))
-  (v! (s~ (texture texture tex-coord) :xyz)
+  (v! (s~ (texture texture tex-coord) :z)
+      (s~ (texture texture tex-coord) :y)
+      (s~ (texture texture tex-coord) :x)
       (* alpha (s~ (texture texture tex-coord) :w))))
 
 (def-g-> alt-tab-pipeline ()
@@ -80,16 +82,16 @@
 
     (mapcar (lambda (surface o)
 	      (with-blending (blending-parameters mode)
-	      (with-rect (vs (waylisp:width surface) (waylisp:height surface))
-;;	      (with-surface (vs tex mode surface :z (+ (* (- o) spacing) 100))
-		(let ((tex (texture-of surface)))
-		  (map-g-default/fbo view-fbo #'alt-tab-pipeline vs
-			 :surface-scale (m4:scale (v! (scale-x surface) (scale-y surface) 1.0))
-			 :surface-translate (m4:translation (v! (x surface) (y surface) (+ (* (- o) spacing) 100)))
-			 :ortho (projection mode)
-			 :rot-y (rot-y (y-angle mode))
-			 :rot-x (rot-x (x-angle mode))
-			 :texture tex
-			 :alpha (if (= (selection mode) o) 1.0 (opacity mode)))))))
+		(with-rect (vs (waylisp:width surface) (waylisp:height surface))
+		  ;;	      (with-surface (vs tex mode surface :z (+ (* (- o) spacing) 100))
+		  (let ((tex (texture-of surface)))
+		    (map-g-default/fbo view-fbo #'alt-tab-pipeline vs
+				       :surface-scale (m4:scale (v! (scale-x surface) (scale-y surface) 1.0))
+				       :surface-translate (m4:translation (v! (x surface) (y surface) (+ (* (- o) spacing) 100)))
+				       :ortho (projection mode)
+				       :rot-y (rot-y (y-angle mode))
+				       :rot-x (rot-x (x-angle mode))
+				       :texture tex
+				       :alpha (if (= (selection mode) o) 1.0 (opacity mode)))))))
 	    (reverse drawable-surfaces)
 	    order)))

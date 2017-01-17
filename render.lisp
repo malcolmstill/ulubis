@@ -246,8 +246,11 @@
 	  (:smooth (tex vert))))
 
 (defun-g default-fragment-shader ((tex-coord :vec2) &uniform (texture :sampler-2d) (alpha :float))
-  (v! (s~ (texture texture tex-coord) :xyz)
-      (* alpha (s~ (texture texture tex-coord) :w))))
+  (v!
+   (s~ (texture texture tex-coord) :z)
+   (s~ (texture texture tex-coord) :y)
+   (s~ (texture texture tex-coord) :x)
+   (* alpha (s~ (texture texture tex-coord) :w))))
 
 (defun-g ulubis-cursor-vertex-shader ((vert g-pt) &uniform (ortho :mat4) (origin :mat4) (origin-inverse :mat4) (surface-scale :mat4) (surface-translate :mat4))
   (values (* ortho surface-translate origin-inverse surface-scale origin (v! (pos vert) 1))
