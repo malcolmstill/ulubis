@@ -60,6 +60,7 @@
 	(waylisp:resize surface width height (get-milliseconds) :activate? t)
 	(waylisp:resize surface width height (get-milliseconds) :activate? nil))))
 
+#|
 (defun deactivate-surface (surface)
   (when surface
     (waylisp:keyboard-send-leave surface)
@@ -78,10 +79,25 @@
        (progn
 	 (deactivate-surface active-surface)
 	 (setf active-surface surface)
-	 (waylisp:keyboard-send-enter surface)
-	 (waylisp:keyboard-send-modifiers surface (mods-depressed *compositor*) (mods-latched *compositor*) (mods-locked *compositor*) (mods-group *compositor*))
+	 (keyboard-send-enter surface)
+	 (keyboard-send-modifiers surface
+				  (mods-depressed *compositor*)
+				  (mods-latched *compositor*)
+				  (mods-locked *compositor*)
+				  (mods-group *compositor*))
 	 (when (or (ulubis-xdg-surface? surface) (ulubis-zxdg-toplevel? surface))
 	   (waylisp:activate surface (get-milliseconds))))))))
+|#
+
+(defun activate-surface (surface mode)
+  (with-slots (view) mode
+    (with-slots (active-surface) view
+      (setf active-surface
+	    (activate surface active-surface
+		      (list (mods-depressed *compositor*)
+			    (mods-latched *compositor*)
+			    (mods-locked *compositor*)
+			    (mods-group *compositor*)))))))
 
 (defun call-mouse-motion-handler (time x y)
   (when (show-cursor *compositor*)
@@ -148,9 +164,9 @@
 	 (format t "Opened socket: ~A~%" (wl-display-add-socket-auto (display *compositor*)))
 	 
 	 (initialize-wayland-server-interfaces) 
-	 (initialize-xdg-shell-server-interfaces)
+	 ;;(initialize-xdg-shell-server-interfaces)
 	 (initialize-zxdg-shell-server-interfaces) 
-	 (set-implementations) 
+	 ;;(set-implementations) 
 	 (wl-global-create (display *compositor*)
 			   wl-compositor-interface
 			   3
@@ -187,12 +203,14 @@
 			   1
 			   (null-pointer)
 			   (callback zxdg-shell-v6-bind))
+	 #|
 	 (wl-global-create (display *compositor*)
 			   xdg-shell-interface
 			   1
 			   (null-pointer)
 			   (callback xdg-shell-bind))
-	 
+	 |#
+
 	 ;; Initialise shared memory
 	 (wl-display-init-shm (display *compositor*))
 	 ;; Run main loop

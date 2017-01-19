@@ -57,16 +57,16 @@
 (defun rot-x (angle)
   (m4:rotation-from-axis-angle (v! 1 0 0) angle))
 
-(defun-g alt-tab-vertex-shader ((vert g-pt) &uniform (surface-scale :mat4) (surface-translate :mat4) (ortho :mat4) (rot-y :mat4) (rot-x :mat4))
-  (values (* rot-x (* rot-y (* ortho (* surface-translate (* surface-scale (v! (pos vert) 1))))))
-	  (:smooth (tex vert))))
+(cepl:defun-g alt-tab-vertex-shader ((vert cepl:g-pt) &uniform (surface-scale :mat4) (surface-translate :mat4) (ortho :mat4) (rot-y :mat4) (rot-x :mat4))
+  (values (* rot-x (* rot-y (* ortho (* surface-translate (* surface-scale (cepl:v! (cepl:pos vert) 1))))))
+	  (:smooth (cepl:tex vert))))
 
-(defun-g alt-tab-frag ((tex-coord :vec2) &uniform (texture :sampler-2d) (alpha :float))
-  (v! (s~ (texture texture tex-coord) :xyz)
-      (* alpha (s~ (texture texture tex-coord) :w))))
+(cepl:defun-g alt-tab-frag ((tex-coord :vec2) &uniform (texture :sampler-2d) (alpha :float))
+  (cepl:v! (cepl:s~ (cepl:texture texture tex-coord) :xyz)
+      (* alpha (cepl:s~ (cepl:texture texture tex-coord) :w))))
 
-(def-g-> alt-tab-pipeline ()
-  (alt-tab-vertex-shader g-pt) (alt-tab-frag :vec2))
+(cepl:def-g-> alt-tab-pipeline ()
+  (alt-tab-vertex-shader cepl:g-pt) (alt-tab-frag :vec2))
 
 (defmethod render ((mode alt-tab-mode) &optional view-fbo)
   (let* ((drawable-surfaces (surfaces mode))
@@ -79,17 +79,17 @@
     (clear)
 
     (mapcar (lambda (surface o)
-	      (with-blending (blending-parameters mode)
-	      (with-rect (vs (waylisp:width surface) (waylisp:height surface))
-;;	      (with-surface (vs tex mode surface :z (+ (* (- o) spacing) 100))
-		(let ((tex (texture-of surface)))
-		  (map-g-default/fbo view-fbo #'alt-tab-pipeline vs
-			 :surface-scale (m4:scale (v! (scale-x surface) (scale-y surface) 1.0))
-			 :surface-translate (m4:translation (v! (x surface) (y surface) (+ (* (- o) spacing) 100)))
-			 :ortho (projection mode)
-			 :rot-y (rot-y (y-angle mode))
-			 :rot-x (rot-x (x-angle mode))
-			 :texture tex
-			 :alpha (if (= (selection mode) o) 1.0 (opacity mode)))))))
+	      (cepl:with-blending (blending-parameters mode)
+		(with-rect (vs (waylisp:width surface) (waylisp:height surface))
+		  ;;	      (with-surface (vs tex mode surface :z (+ (* (- o) spacing) 100))
+		  (let ((tex (texture-of surface)))
+		    (map-g-default/fbo view-fbo #'alt-tab-pipeline vs
+				       :surface-scale (m4:scale (v! (scale-x surface) (scale-y surface) 1.0))
+				       :surface-translate (m4:translation (v! (x surface) (y surface) (+ (* (- o) spacing) 100)))
+				       :ortho (projection mode)
+				       :rot-y (rot-y (y-angle mode))
+				       :rot-x (rot-x (x-angle mode))
+				       :texture tex
+				       :alpha (if (= (selection mode) o) 1.0 (opacity mode)))))))
 	    (reverse drawable-surfaces)
 	    order)))

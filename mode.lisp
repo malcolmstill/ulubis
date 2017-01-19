@@ -58,8 +58,8 @@
 		(key-bindings ,instance))))))
 
 (defun cancel-mods (surface)
-  (when (and surface (waylisp:->keyboard (waylisp:client surface)))
-    (wl-keyboard-send-modifiers (waylisp:->keyboard (waylisp:client surface)) 0
+  (when (and surface (keyboard (client surface)))
+    (wl-keyboard-send-modifiers (->resource (keyboard (client surface))) 0
 				0
 				0
 				0
@@ -85,10 +85,10 @@
 	   (cancel-mods surface)
 	   (funcall fn mode)
 	   (return-from keyboard-handler))))
-    (when (and surface akey (waylisp:->keyboard (waylisp:client surface)))
-      (wl-keyboard-send-key (waylisp:->keyboard (waylisp:client surface)) 0 time akey state))
-    (when (and surface (waylisp:->keyboard (waylisp:client surface)))
-      (wl-keyboard-send-modifiers (waylisp:->keyboard (waylisp:client surface)) 0
+    (when (and surface akey (keyboard (client surface)))
+      (wl-keyboard-send-key (->resource (keyboard (client surface))) 0 time akey state))
+    (when (and surface (keyboard (client surface)))
+      (wl-keyboard-send-modifiers (->resource (keyboard (client surface))) 0
 				  (mods-depressed *compositor*)
 				  (mods-latched *compositor*)
 				  (mods-locked *compositor*)

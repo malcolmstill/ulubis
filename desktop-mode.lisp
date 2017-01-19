@@ -11,7 +11,7 @@
 
 (defmethod init-mode ((mode desktop-mode))
   (setf *ortho* (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1 -1))
-  (map-g #'mapping-pipeline nil)
+  (cepl:map-g #'mapping-pipeline nil)
   (setf (render-needed *compositor*) t))
 
 (defun move-surface (x y move-op)
@@ -35,24 +35,24 @@
   (setf (cursor-surface *compositor*) nil)
   ;; (format t "Pointer changed service~%")
   (when (focus-follows-mouse mode)
-    (deactivate-surface old-surface)) 
-  (when (waylisp:accepts-pointer-events? old-surface)
-    (wl-pointer-send-leave (waylisp:->pointer (waylisp:client old-surface))
+    (deactivate old-surface)) 
+  (when (and old-surface (pointer (client old-surface)))
+    (wl-pointer-send-leave (->resource (pointer (client old-surface)))
 			   0
-			   (waylisp:->surface old-surface)))
+			   (->resource (wl-surface old-surface))))
   (setf (pointer-surface *compositor*) new-surface)
   (when (focus-follows-mouse mode)
-    (activate-surface new-surface (view mode)))
-  (when (waylisp:accepts-pointer-events? new-surface)
-    (wl-pointer-send-enter (waylisp:->pointer (waylisp:client new-surface))
+    (activate-surface new-surface mode))
+  (when (and new-surface (pointer (client new-surface)))
+    (wl-pointer-send-enter (->resource (pointer (client new-surface)))
 			   0
-			   (waylisp:->surface new-surface)
+			   (->resource (wl-surface new-surface))
 			   (round (* 256 (- x (x new-surface))))
 			   (round (* 256 (- y (y new-surface)))))))
 
 (defun send-surface-pointer-motion (x y time surface)
-  (when (waylisp:accepts-pointer-events? surface)
-    (wl-pointer-send-motion (waylisp:->pointer (waylisp:client surface))
+  (when (and surface (pointer (client surface)))
+    (wl-pointer-send-motion (->resource (pointer (client surface)))
 			    time
 			    (round (* 256 (- x (x surface))))
 			    (round (* 256 (- y (y surface)))))
@@ -86,6 +86,7 @@
 	 (resize-surface pointer-x pointer-y (view mode) (resizing-surface *compositor*)))
 	;; 3. The pointer has left the current surface
 	((not (equalp old-surface current-surface))
+	 (setf (cursor-surface *compositor*) nil)
 	 (pointer-changed-surface mode pointer-x pointer-y old-surface current-surface))
 	;; 4. Pointer is over previous surface
 	((equalp old-surface current-surface)
@@ -111,7 +112,7 @@
 	(start-animation (pulse-animation surface) :finished-fn (lambda ()
 								  (setf (origin-x surface) 0.0)
 								  (setf (origin-y surface) 0.0))))
-      (activate-surface surface (view mode))
+      (activate-surface surface mode)
       (when (and surface (not (eql (find-class 'waylisp:wl-cursor) (class-of surface))))
 	(raise-surface surface (view mode))
 	(setf (render-needed *compositor*) t))))
@@ -157,8 +158,8 @@
     (let ((surface (surface-under-pointer (pointer-x *compositor*)
 			       (pointer-y *compositor*)
 			       (view mode)) ))
-      (when (waylisp:accepts-pointer-events? surface)
-	(wl-pointer-send-button (waylisp:->pointer (waylisp:client surface))
+      (when (and surface (pointer (client surface)))
+	(wl-pointer-send-button (->resource (pointer (client surface)))
 				0
 				time
 				button
@@ -246,26 +247,26 @@
   ;; don't animate ulubis-cursor
   )
 
-(defun-g desktop-mode-vertex-shader ((vert g-pt) &uniform (origin :mat4) (origin-inverse :mat4) (surface-scale :mat4) (surface-translate :mat4))
-  (values (* *ortho* surface-translate origin-inverse surface-scale origin (v! (pos vert) 1))
-	  (:smooth (tex vert))))
+(cepl:defun-g desktop-mode-vertex-shader ((vert cepl:g-pt) &uniform (origin :mat4) (origin-inverse :mat4) (surface-scale :mat4) (surface-translate :mat4))
+  (values (* *ortho* surface-translate origin-inverse surface-scale origin (cepl:v! (cepl:pos vert) 1))
+	  (:smooth (cepl:tex vert))))
 
-(def-g-> mapping-pipeline ()
-  (desktop-mode-vertex-shader g-pt) (default-fragment-shader :vec2))
+(cepl:def-g-> mapping-pipeline ()
+  (desktop-mode-vertex-shader cepl:g-pt) (default-fragment-shader :vec2))
 
-(defmethod render ((surface ulubis-surface) &optional view-fbo)
-  (when (waylisp:texture surface)
-    (with-rect (vertex-stream (waylisp:width surface) (waylisp:height surface))
+(defmethod render ((surface isurface) &optional view-fbo)
+  (when (texture (wl-surface surface))
+    (with-rect (vertex-stream (width (wl-surface surface)) (height (wl-surface surface)))
       (let ((texture (texture-of surface)))
 	(gl:viewport 0 0 (screen-width *compositor*) (screen-height *compositor*))
 	(map-g-default/fbo view-fbo #'mapping-pipeline vertex-stream
-			   :origin (m4:translation (v! (- (origin-x surface)) (- (origin-y surface)) 0))
-			   :origin-inverse (m4:translation (v! (origin-x surface) (origin-y surface) 0))
-			   :surface-scale (m4:scale (v! (scale-x surface) (scale-y surface) 1.0))
-			   :surface-translate (m4:translation (v! (x surface) (y surface) 0.0))
+			   :origin (m4:translation (cepl:v! (- (origin-x surface)) (- (origin-y surface)) 0))
+			   :origin-inverse (m4:translation (cepl:v! (origin-x surface) (origin-y surface) 0))
+			   :surface-scale (m4:scale (cepl:v! (scale-x surface) (scale-y surface) 1.0))
+			   :surface-translate (m4:translation (cepl:v! (x surface) (y surface) 0.0))
 			   :texture texture
 			   :alpha (opacity surface))))
-    (loop :for subsurface :in (waylisp:subsurfaces surface)
+    (loop :for subsurface :in (subsurfaces surface)
        :do (render subsurface view-fbo))))
 
 (defmethod render ((surface ulubis-subsurface) &optional view-fbo)
@@ -274,13 +275,13 @@
       (let ((texture (texture-of surface)))
 	(gl:viewport 0 0 (screen-width *compositor*) (screen-height *compositor*))
 	(map-g-default/fbo view-fbo #'mapping-pipeline vertex-stream
-			   :origin (m4:translation (v! (+ (x surface) (- (origin-x (waylisp:parent surface))))
+			   :origin (m4:translation (cepl:v! (+ (x surface) (- (origin-x (waylisp:parent surface))))
 						       (+ (y surface) (- (origin-y (waylisp:parent surface)))) 0))
-			   :origin-inverse (m4:translation (v! (+ (- (x surface)) (origin-x (waylisp:parent surface)))
+			   :origin-inverse (m4:translation (cepl:v! (+ (- (x surface)) (origin-x (waylisp:parent surface)))
 							       (+ (- (y surface)) (origin-y (waylisp:parent surface))) 0))
-			   :surface-scale (m4:scale (v! (scale-x (waylisp:parent surface))
+			   :surface-scale (m4:scale (cepl:v! (scale-x (waylisp:parent surface))
 							(scale-y (waylisp:parent surface)) 1.0))
-			   :surface-translate (m4:translation (v!
+			   :surface-translate (m4:translation (cepl:v!
 							       (+ (x (waylisp:parent surface)) (x surface))
 							       (+ (y (waylisp:parent surface)) (y surface))
 							       0.0))
@@ -296,7 +297,7 @@
   (apply #'gl:clear-color (clear-color mode))
   (when view-fbo
     (cepl:clear view-fbo))
-  (with-blending (blending-parameters mode)
+  (cepl:with-blending (blending-parameters mode)
     (mapcar (lambda (surface)
 	      (render surface view-fbo))
 	    (reverse (surfaces (view mode))))))
