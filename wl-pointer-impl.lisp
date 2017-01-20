@@ -1,8 +1,8 @@
 
 (in-package :ulubis)
 
-(def-wl-callback set-cursor (client resource (serial :uint32) (->surface :pointer) (hotspot-x :int32) (hotspot-y :int32))
-  (let ((surface (find-resource client ->surface)))
+(def-wl-callback set-cursor (client pointer (serial :uint32) (surface-ptr :pointer) (hotspot-x :int32) (hotspot-y :int32))
+  (let ((surface (find-resource client surface-ptr)))
     (when surface
       (setf (x surface) hotspot-x)
       (setf (y surface) hotspot-y)

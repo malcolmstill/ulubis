@@ -1,11 +1,11 @@
 
 (in-package :ulubis)
 
-(def-wl-callback get-pointer (client resource (id :uint32))
+(def-wl-callback get-pointer (client seat (id :uint32))
   (setf (pointer client) (make-wl-pointer client 1 id)))
 
-(def-wl-callback get-keyboard (client resource (id :uint32))
-  (let ((keyboard (make-wl-keyboard client (get-version resource) id)))
+(def-wl-callback get-keyboard (client seat (id :uint32))
+  (let ((keyboard (make-wl-keyboard client (get-version seat) id)))
     (setf (keyboard client) keyboard)
     (when (>= (get-version keyboard) 4)
       (wl-keyboard-send-repeat-info (->resource keyboard) 30 200)
@@ -19,5 +19,5 @@
 
 (def-wl-bind seat-bind (client (data :pointer) (version :uint32) (id :uint32))
   (let ((seat (make-wl-seat client 4 id)))
-    (describe seat)
+    (format t "Made seat: ~A~%" seat)
     (wl-seat-send-capabilities (->resource seat) 3)))

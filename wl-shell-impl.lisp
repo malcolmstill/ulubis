@@ -1,8 +1,8 @@
 
 (in-package :ulubis)
 
-(def-wl-callback get-shell-surface (client resource (id :uint32) (surface-ptr :pointer))
-  (let ((surface (find-resource client (wl-resource-get-user-data surface-ptr)))
+(def-wl-callback get-shell-surface (client shell (id :uint32) (surface-ptr :pointer))
+  (let ((surface (find-resource client surface-ptr))
 	(shell-surface (make-wl-shell-surface client 1 id :delete-fn (callback wl-shell-surface-delete))))
     (setf (wl-surface shell-surface) surface)
     (setf (role surface) shell-surface)

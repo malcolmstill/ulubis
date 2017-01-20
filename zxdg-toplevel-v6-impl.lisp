@@ -8,12 +8,22 @@
   )
 
 (def-wl-callback zxdg-toplevel-destroy (client toplevel)
+  (format t "zxdg-toplevle-destroy~%")
+  (describe toplevel)
+  (setf (role (wl-surface toplevel)) nil)
+  (format t "Surfaces: ~A~%" (surfaces *compositor*))
   (remove-surface toplevel *compositor*)
+  (format t "Surfaces: ~A~%" (surfaces *compositor*))
   (setf (render-needed *compositor*) t))
 
 (def-wl-delete zxdg-toplevel-delete (toplevel)
-  (remove-surface toplevel *compositor*)
-  (setf (render-needed *compositor*) t))
+  (format t "zxdg-toplevel-delete~%")
+  (when toplevel
+    (describe toplevel)
+    (setf (role (wl-surface toplevel)) nil)
+    (remove-surface toplevel *compositor*)
+    (setf (render-needed *compositor*) t))
+  (format t "DONE zxdg-toplevel-delete~%"))
 
 (defimplementation zxdg-toplevel-v6 (isurface)
   ((:move move)

@@ -1,19 +1,24 @@
 
 (in-package :ulubis)
 
-(def-wl-callback compositor-create-surface (client resource (id :uint32)) 
+(def-wl-callback create-surface (client compositor (id :uint32))
+  (format t "CREATE-SURFACE: ~A~%" compositor)
   (let ((surface (make-wl-surface client 3 id)))
-    (push surface (surfaces *compositor*))
-    (setf (wl-surface surface) surface)))
+    (format t "Made surface: ~A~%" surface)
+    (setf (wl-surface surface) surface)
+    (setf (role surface) surface)))
 
-(def-wl-callback compositor-create-region (client resource (id :uint32)) 
-  (make-wl-region client 1 id))
+(def-wl-callback create-region (client compositor (id :uint32))
+  (format t "CREATE-REGION: ~A~%" compositor)
+  (let ((reg (make-wl-region client 1 id)))
+    (format t "Made region: ~A~%" reg)))
 
 (defimplementation wl-compositor ()
-  ((:create-surface compositor-create-surface)
-   (:create-region compositor-create-region))
+  ((:create-surface create-surface)
+   (:create-region create-region))
   ())
 
 (def-wl-bind compositor-bind (client (data :pointer) (version :uint32) (id :uint32))
-  (make-wl-compositor client 1 id))
+  (let ((compositor (make-wl-compositor client 1 id)))
+    (format t "Made compositor: ~A~%" compositor)))
    

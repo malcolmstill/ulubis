@@ -113,7 +113,7 @@
     (if (and (fbo effect) (= width (width effect)) (= height (height effect)))
 	(fbo effect)
 	(progn
-	  (format t "Making new framebuffer (dimensions: ~Ax~A) ~%" width height)
+	  ;;(format t "Making new framebuffer (dimensions: ~Ax~A) ~%" width height)
 	  (when (fbo effect)
 	    (cepl:free (fbo effect)))
 	  (setf (width effect) width)
@@ -144,9 +144,11 @@
 |#
 
 
+#|
 (defmethod add-effect ((surface ulubis-surface) pipeline)
   (with-slots (width height effects) surface
     (push (make-instance 'effect :width width :height height :pipeline pipeline) effects)))
+|#
 
 (defmacro map-g-default/fbo (fbo pipeline vertex-stream &rest uniforms)
   `(if ,fbo
@@ -158,9 +160,9 @@
 
 (defmethod texture-of ((surface isurface))
   "Given a surface will return a texture sampler of either the underlying texture or a FBO which has been used to apply effects to the surface"
-  (describe surface)
+  ;;(describe surface)
   (with-slots (effects wl-surface) surface
-    (format t "Effects ~A~%" effects)
+    ;;(format t "Effects ~A~%" effects)
     (with-slots (width height texture) wl-surface
       (with-screen (ys)
 	(let ((tex (cepl-texture texture)))
@@ -181,14 +183,17 @@
 		   :finally (return-from texture-of (fbo-sample effect))))
 	      (cepl:sample tex)))))))
 
+#|
 (defmethod texture-of :after ((surface isurface)); map-pipleine &optional final-fbo)
-  (format t "FRAME CALLBACK~%")
-  (let ((surface (wl-surface surface)))
-    (with-slots (frame-callback) surface
+  ;;(format t "FRAME CALLBACK~%")
+  (with-slots (wl-surface) surface
+    (with-slots (frame-callback) wl-surface
       (when frame-callback
 	(wl-callback-send-done (->resource frame-callback) (get-milliseconds))
 	(wl-resource-destroy (->resource frame-callback))
+	(remove-resource frame-callback)
 	(setf frame-callback nil)))))
+|#
 
 (defmacro with-surface ((vertex-stream tex mode surface &key (fbo nil) (z 0) (scale 1.0)) &body body)
   (let ((x (gensym "x"))
@@ -264,8 +269,8 @@
   (ulubis-cursor-vertex-shader cepl:g-pt) (default-fragment-shader :vec2))
     
 (defmethod draw-cursor ((surface isurface) fbo x y ortho)
-  (format t "DRAW-CURSOR~%")
-  (describe surface)
+  ;;(format t "DRAW-CURSOR~%")
+  ;;(describe surface)
   (when (texture (wl-surface surface))
     (with-rect (vertex-stream (width (wl-surface surface)) (height (wl-surface surface)))
       (let ((texture (texture-of surface)))

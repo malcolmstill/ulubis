@@ -14,6 +14,7 @@
    (backend :accessor backend :initarg :backend :initform nil)
    (display :accessor display :initarg :display :initform nil)
    (devices :accessor devices :initarg :devices :initform nil)
+   (callbacks :accessor callbacks :initarg :callbacks :initform nil)
    (->output :accessor ->output :initarg :->output :initform nil)
    (event-loop :accessor event-loop :initarg :event-loop :initform nil)
    (screen-width :accessor screen-width :initarg :screen-width :initform 640)
@@ -88,7 +89,15 @@
 		      (surfaces client)))
 	   (clients compositor)))
 
-
+(defun remove-client (client-pointer)
+  (let ((client (get-client client-pointer)))
+    (loop :for resource :in (resources client) :do
+       (format t "resource: ~A~%" resource)
+       (remove-surface resource *compositor*))
+    (setf (resources client) nil)
+    (setf waylisp::*clients* (remove-if (lambda (client)
+				 (and (pointerp (waylisp:->client client)) (pointer-eq (waylisp:->client client) client-pointer)))
+			       waylisp::*clients*))))
 
 (defun view-has-surface? (surface view)
   (when (find surface (surfaces view))
@@ -99,6 +108,7 @@
      :when (view-has-surface? surface view) :collect it))
 
 (defun remove-surface-from-view (surface view)
+  (format t "surface: ~A, view: ~A~%" surface view)
   (when (equalp (active-surface view) surface)
     (setf (active-surface view) nil))
   (setf (surfaces view) (remove surface (surfaces view))))
@@ -156,8 +166,10 @@
     (with-slots (width height) wl-surface
       (pointer-over-p pointer-x pointer-y x y width height))))
 
+#|
 (defmethod pointer-over-surface-p ((surface ulubis-cursor) pointer-x pointer-y)
   nil)
+|#
 
 (defun surface-under-pointer (x y view)
   (find-if (lambda (surface)

@@ -1,11 +1,11 @@
 
 (in-package :ulubis)
 
-(def-wl-callback set-position (client surface (x :int) (y :int))
-  (when surface
-    (setf (x surface) x)
-    (setf (y surface) y)))
+(def-wl-callback set-position (client subsurface (x :int) (y :int))
+  (when subsurface
+    (setf (x subsurface) x)
+    (setf (y subsurface) y)))
 
 (defimplementation wl-subsurface (isurface)
   ((:set-position set-position))
-  ())
+  ((parent :accessor parent :initarg :parent :initform nil)))
