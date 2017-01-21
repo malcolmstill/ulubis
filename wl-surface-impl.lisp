@@ -16,7 +16,7 @@
   (setf (buffer surface) buffer))
   
 (def-wl-callback frame (client surface (callbackid :uint32))
-  (let ((frame-callback (make-wl-callback client 1 callbackid :implementation? nil)))
+  (let ((frame-callback (make-wl-callback (->client client) 1 callbackid :implementation? nil)))
     (setf (frame-callback surface) frame-callback)
     (push frame-callback (callbacks *compositor*))))
 

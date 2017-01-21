@@ -2,7 +2,7 @@
 (in-package :ulubis)
 
 (def-wl-callback get-toplevel (client zxdg-surface (id :uint32))
-  (let ((toplevel (make-zxdg-toplevel-v6 client 1 id :delete-fn (callback zxdg-toplevel-delete))))
+  (let ((toplevel (make-zxdg-toplevel-v6 (->client client) 1 id :delete-fn (callback zxdg-toplevel-delete))))
     ;; Save the xdg-surface object so that configure events can be sent
     (setf (zxdg-surface-v6 toplevel) zxdg-surface)
     ;; Surface role now becomes xdg-toplevel
