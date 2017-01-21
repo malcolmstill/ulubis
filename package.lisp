@@ -9,7 +9,7 @@
 	:wayland-server-core
 	:wayland-server-protocol
 	:xdg-shell-server-protocol
-	:zxdg-shell-server-protocol
+	:zxdg-shell-v6-server-protocol
 	:waylisp
 	:ulubis-backend
 	:animation))

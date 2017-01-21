@@ -173,7 +173,7 @@
 	 
 	 (initialize-wayland-server-interfaces) 
 	 ;;(initialize-xdg-shell-server-interfaces)
-	 (initialize-zxdg-shell-server-interfaces) 
+	 (initialize-zxdg-shell-v6-server-interfaces) 
 	 ;;(set-implementations)
 	 (set-implementation-wl-surface)
 	 (set-implementation-wl-seat)
@@ -201,7 +201,7 @@
 			   2
 			   (null-pointer)
 			   (callback output-bind))
-	 
+
 	 (wl-global-create (display *compositor*)
 			   wl-compositor-interface
 			   3
@@ -225,7 +225,7 @@
 			   3
 			   (null-pointer)
 			   (callback device-manager-bind))
-	 
+
 	 (wl-global-create (display *compositor*) 
 			   wl-subcompositor-interface
 			   1
