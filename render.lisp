@@ -20,7 +20,7 @@
       (setf (width surface) w)
       (setf (height surface) h)
       (when (and (texture surface) (cepl-texture (texture surface)))
-	(cepl:free (cepl-texture (waylisp:texture surface))))
+	(cepl:free (cepl-texture (texture surface))))
       (setf (texture surface) (make-instance 'texture-gl
 					     :width w
 					     :height h

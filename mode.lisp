@@ -98,7 +98,7 @@
   )
 
 (defmethod first-commit :after ((mode mode) surface)
-  (setf (first-commit? surface) nil))
+  (setf (first-commit? (wl-surface surface)) nil))
 
 (defun push-mode (view mode)
   (setf (view mode) view)

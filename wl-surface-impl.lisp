@@ -9,21 +9,20 @@
   (setf (committed surface) t)
   (create-texture surface)
   (when (and (buffer surface) (first-commit? surface))
-    (first-commit (current-mode (current-view *compositor*)) surface))
+    (first-commit (current-mode (current-view *compositor*)) (role surface)))
   (setf (render-needed *compositor*) t))
 
 (def-wl-callback attach (client surface (buffer :pointer) (x :int32) (y :int32))
   (setf (buffer surface) buffer))
   
 (def-wl-callback frame (client surface (callbackid :uint32))
-  ;;(setf frame-callback (make-wl-callback client 1 callback))))
-  ;;(wl-resource-create client-ptr wl-callback-interface 1 callback)))
-  (let ((frame-callback (make-wl-callback client 1 callbackid)))
+  (let ((frame-callback (make-wl-callback client 1 callbackid :implementation? nil)))
     (setf (frame-callback surface) frame-callback)
     (push frame-callback (callbacks *compositor*))))
 
 (def-wl-callback set-input-region (client surface (region :pointer))
   (setf (input-region surface) (find-resource client region)))
+
 
 (def-wl-callback set-opaque-region (client surface (region :pointer))
   (setf (opaque-region surface) (find-resource client region)))
@@ -48,5 +47,4 @@
    (texture :accessor texture :initarg :texture :initform nil)
    (role :accessor role :initarg :role :initform nil)
    (buffer :accessor buffer :initarg :buffer :initform nil)
-   (first-commit? :accessor first-commit? :initarg :first-commit? :initform nil)))
-  
+   (first-commit? :accessor first-commit? :initarg :first-commit? :initform t)))

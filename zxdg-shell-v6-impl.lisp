@@ -3,7 +3,7 @@
 
 (def-wl-callback get-xdg-surface (client zxdg-shell (id :uint32) (surface-ptr :pointer))
   (let* ((surface (find-resource client surface-ptr))
-	 (zxdg-surface (make-zxdg-surface-v6 client (get-version zxdg-shell) id)))
+	 (zxdg-surface (make-zxdg-surface-v6 client 1 id)))
     (format t "GET-XDG-SURFACE: ~A~%" zxdg-shell)
     (format t "GET-XDG-SURFACE surface: ~A~%" surface)
     (format t "GET-XDG-SURFACE zxdg-surface: ~A~%" zxdg-surface)

@@ -10,8 +10,8 @@
 
 (def-wl-callback create-region (client compositor (id :uint32))
   (format t "CREATE-REGION: ~A~%" compositor)
-  (let ((reg (make-wl-region client 1 id)))
-    (format t "Made region: ~A~%" reg)))
+  (let ((region (make-wl-region client 1 id)))
+    (format t "Made region: ~A~%" region)))
 
 (defimplementation wl-compositor ()
   ((:create-surface create-surface)
@@ -21,4 +21,3 @@
 (def-wl-bind compositor-bind (client (data :pointer) (version :uint32) (id :uint32))
   (let ((compositor (make-wl-compositor client 1 id)))
     (format t "Made compositor: ~A~%" compositor)))
-   
