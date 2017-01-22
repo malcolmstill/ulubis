@@ -219,42 +219,6 @@
     (setf (first-commit-animation surface) animation)
     (start-animation animation)))
 
-#|
-(defmethod first-commit ((mode desktop-mode) (surface ulubis-zxdg-surface))
-  (let ((animation (sequential-animation
-		    (lambda ()
-		      (setf (origin-x surface) 0.0)
-		      (setf (origin-y surface) 0.0))
-		    (animation :target surface
-			       :property 'scale-x
-			       :easing-fn 'easing:out-exp
-			       :from 0
-			       :to 1.0
-			       :duration 250)
-		    (animation :target surface
-			       :property 'scale-y
-			       :easing-fn 'easing:out-exp
-			       :to 1.0
-			       :duration 250))))
-    (setf (origin-x surface) (/ (waylisp:width surface) 2))
-    (setf (origin-y surface) (/ (waylisp:height surface) 2))
-    (setf (scale-y surface) (/ 6 (waylisp:height surface)))
-    (start-animation animation)))
-|#
-
-
-#|
-(defmethod first-commit ((mode desktop-mode) (surface wl-subsurface))
-  ;; only animate the parent surface
-  )
-|#
-
-#|
-(defmethod first-commit ((mode desktop-mode) (surface ulubis-cursor))
-  ;; don't animate ulubis-cursor
-  )
-|#
-
 (cepl:defun-g desktop-mode-vertex-shader ((vert cepl:g-pt) &uniform (origin :mat4) (origin-inverse :mat4) (surface-scale :mat4) (surface-translate :mat4))
   (values (* *ortho* surface-translate origin-inverse surface-scale origin (cepl:v! (cepl:pos vert) 1))
 	  (:smooth (cepl:tex vert))))
@@ -278,31 +242,27 @@
        :do (render subsurface view-fbo))))
 
 (defmethod render ((surface wl-subsurface) &optional view-fbo)
-  ;;(format t "Rendering wl-subsurface: ~A~%" surface)
   (when (texture (wl-surface surface))
     (with-rect (vertex-stream (width (wl-surface surface)) (height (wl-surface surface)))
       (let ((texture (texture-of surface)))
 	(gl:viewport 0 0 (screen-width *compositor*) (screen-height *compositor*))
 	(map-g-default/fbo view-fbo #'mapping-pipeline vertex-stream
 			   :origin (m4:translation (cepl:v! (+ (x surface) (- (origin-x (parent surface))))
-						       (+ (y surface) (- (origin-y (parent surface)))) 0))
+							    (+ (y surface) (- (origin-y (parent surface))))
+							    0))
 			   :origin-inverse (m4:translation (cepl:v! (+ (- (x surface)) (origin-x (parent surface)))
-							       (+ (- (y surface)) (origin-y (parent surface))) 0))
+								    (+ (- (y surface)) (origin-y (parent surface)))
+								    0))
 			   :surface-scale (m4:scale (cepl:v! (scale-x (parent surface))
-							(scale-y (parent surface)) 1.0))
-			   :surface-translate (m4:translation (cepl:v!
-							       (+ (x (parent surface)) (x surface))
-							       (+ (y (parent surface)) (y surface))
-							       0.0))
+							     (scale-y (parent surface))
+							     1.0))
+			   :surface-translate (m4:translation (cepl:v! (+ (x (parent surface)) (x surface))
+								       (+ (y (parent surface)) (y surface))
+								       0.0))
 			   :texture texture
 			   :alpha (opacity surface))))
     (loop :for subsurface :in (subsurfaces surface)
        :do (render subsurface view-fbo))))
-
-#|
-(defmethod render ((cursor ulubis-cursor) &optional view-fbo)
-  nil)
-|#
 
 (defmethod render ((mode desktop-mode) &optional view-fbo)
   (apply #'gl:clear-color (clear-color mode))

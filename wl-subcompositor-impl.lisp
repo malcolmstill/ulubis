@@ -5,7 +5,7 @@
   (let* ((subsurface (make-wl-subsurface client (get-version subcompositor) id))
 	 (surface (find-resource client surface-ptr))
 	 (parent (find-resource client parent-ptr)))
-    (setf (parent subsurface) parent)
+    (setf (parent subsurface) (role parent))
     (setf (wl-surface subsurface) surface)
     (setf (role surface) subsurface)
     (push subsurface (subsurfaces (role parent)))))
