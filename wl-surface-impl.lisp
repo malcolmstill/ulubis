@@ -23,7 +23,6 @@
 (def-wl-callback set-input-region (client surface (region :pointer))
   (setf (input-region surface) (find-resource client region)))
 
-
 (def-wl-callback set-opaque-region (client surface (region :pointer))
   (setf (opaque-region surface) (find-resource client region)))
 
@@ -33,7 +32,7 @@
   (setf (callbacks *compositor*) (remove (frame-callback surface) (callbacks *compositor*)))
   (setf (frame-callback surface) nil))
 
-(defimplementation wl-surface (isurface)
+(defimplementation wl-surface (isurface ianimatable)
   ((:commit commit)
    (:attach attach)
    (:frame frame)

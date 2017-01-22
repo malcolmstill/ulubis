@@ -5,7 +5,11 @@
   (format t "Setting title of ~A to ~A~%" toplevel title))
 
 (def-wl-callback move (client toplevel (seat :pointer) (serial :uint32))
-  )
+  (setf (moving-surface *compositor*) (make-move-op :surface toplevel
+						    :surface-x (x toplevel)
+						    :surface-y (y toplevel)
+						    :pointer-x (pointer-x *compositor*)
+						    :pointer-y (pointer-y *compositor*))))
 
 (def-wl-callback zxdg-toplevel-destroy (client toplevel)
   (setf (role (wl-surface toplevel)) nil)
@@ -18,7 +22,7 @@
     (remove-surface toplevel *compositor*)
     (setf (render-needed *compositor*) t)))
 
-(defimplementation zxdg-toplevel-v6 (isurface)
+(defimplementation zxdg-toplevel-v6 (isurface ianimatable)
   ((:move move)
    (:destroy zxdg-toplevel-destroy)
    ;; (:set-title set-title)

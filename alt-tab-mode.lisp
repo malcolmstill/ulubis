@@ -21,8 +21,7 @@
 
 (defmethod init-mode ((mode alt-tab-mode))
   (setf (surfaces mode) (remove-if (lambda (surface)
-				     (or (not (waylisp:texture surface))
-					 (ulubis-cursor? surface)))
+				     (not (texture (wl-surface surface))))
 				   (surfaces (view mode))))
   (setf (projection mode) (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1000 -1000))
   (setf (iso-animation mode) (enter-animation mode))
@@ -48,22 +47,25 @@
       (stop-animation iso-animation))
     (let ((selected-surface (nth selection surfaces)))
       (raise-surface selected-surface (view mode))
-      (activate-surface selected-surface (view mode)))
+      (activate-surface selected-surface mode))
     (start-animation (exit-animation mode))))
 
 (defun rot-y (angle)
-  (m4:rotation-from-axis-angle (v! 0 1 0) angle))
+  (m4:rotation-from-axis-angle (cepl:v! 0 1 0) angle))
 
 (defun rot-x (angle)
-  (m4:rotation-from-axis-angle (v! 1 0 0) angle))
+  (m4:rotation-from-axis-angle (cepl:v! 1 0 0) angle))
 
 (cepl:defun-g alt-tab-vertex-shader ((vert cepl:g-pt) &uniform (surface-scale :mat4) (surface-translate :mat4) (ortho :mat4) (rot-y :mat4) (rot-x :mat4))
   (values (* rot-x (* rot-y (* ortho (* surface-translate (* surface-scale (cepl:v! (cepl:pos vert) 1))))))
 	  (:smooth (cepl:tex vert))))
 
 (cepl:defun-g alt-tab-frag ((tex-coord :vec2) &uniform (texture :sampler-2d) (alpha :float))
-  (cepl:v! (cepl:s~ (cepl:texture texture tex-coord) :xyz)
-      (* alpha (cepl:s~ (cepl:texture texture tex-coord) :w))))
+  (cepl:v!
+   (cepl:s~ (cepl:texture texture tex-coord) :z)
+   (cepl:s~ (cepl:texture texture tex-coord) :y)
+   (cepl:s~ (cepl:texture texture tex-coord) :x)
+   (* alpha (cepl:s~ (cepl:texture texture tex-coord) :w))))
 
 (cepl:def-g-> alt-tab-pipeline ()
   (alt-tab-vertex-shader cepl:g-pt) (alt-tab-frag :vec2))
@@ -76,16 +78,16 @@
 		      (/ (screen-height *compositor*) surface-count)
 		      0)))
     (apply #'gl:clear-color (clear-color mode))
-    (clear)
+    (cepl:clear)
 
     (mapcar (lambda (surface o)
 	      (cepl:with-blending (blending-parameters mode)
-		(with-rect (vs (waylisp:width surface) (waylisp:height surface))
+		(with-rect (vs (width (wl-surface surface)) (height (wl-surface surface)))
 		  ;;	      (with-surface (vs tex mode surface :z (+ (* (- o) spacing) 100))
 		  (let ((tex (texture-of surface)))
 		    (map-g-default/fbo view-fbo #'alt-tab-pipeline vs
-				       :surface-scale (m4:scale (v! (scale-x surface) (scale-y surface) 1.0))
-				       :surface-translate (m4:translation (v! (x surface) (y surface) (+ (* (- o) spacing) 100)))
+				       :surface-scale (m4:scale (cepl:v! (scale-x surface) (scale-y surface) 1.0))
+				       :surface-translate (m4:translation (cepl:v! (x surface) (y surface) (+ (* (- o) spacing) 100)))
 				       :ortho (projection mode)
 				       :rot-y (rot-y (y-angle mode))
 				       :rot-x (rot-x (x-angle mode))

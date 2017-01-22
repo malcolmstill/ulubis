@@ -13,8 +13,11 @@
       (swap-buffers (backend *compositor*))
       (setf (render-needed *compositor*) nil)
       (loop :for callback :in (callbacks *compositor*) :do
-	 (wl-callback-send-done (->resource callback) (get-milliseconds))
-	 (wl-resource-destroy (->resource callback))
+	 (when (find (client callback) waylisp::*clients*)
+	   ;; We can end up getting a frame request after the client has been deleted
+	   ;; if we try and send-done or destroy we will get a memory fault
+	   (wl-callback-send-done (->resource callback) (get-milliseconds))
+	   (wl-resource-destroy (->resource callback)))
 	 (remove-resource callback))
       (setf (callbacks *compositor*) nil))))
 
@@ -172,7 +175,7 @@
 
 	 
 	 (initialize-wayland-server-interfaces) 
-	 ;;(initialize-xdg-shell-server-interfaces)
+	 (initialize-xdg-shell-server-interfaces)
 	 (initialize-zxdg-shell-v6-server-interfaces) 
 	 ;;(set-implementations)
 	 (set-implementation-wl-surface)
@@ -193,6 +196,8 @@
 	 (set-implementation-zxdg-shell-v6)
 	 (set-implementation-zxdg-surface-v6)
 	 (set-implementation-zxdg-toplevel-v6)
+	 (set-implementation-xdg-shell)
+	 (set-implementation-xdg-surface)
 
 	 (wl-display-init-shm (display *compositor*))
 
@@ -237,13 +242,12 @@
 			   1
 			   (null-pointer)
 			   (callback zxdg-shell-v6-bind))
-	 #|
+	 
 	 (wl-global-create (display *compositor*)
 			   xdg-shell-interface
 			   1
 			   (null-pointer)
 			   (callback xdg-shell-bind))
-	 |#
 
 	 ;; Run main loop
 	 ;; (format t "Running main loop~%")

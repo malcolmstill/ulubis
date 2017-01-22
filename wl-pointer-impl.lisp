@@ -6,6 +6,8 @@
     (when surface
       (setf (x surface) hotspot-x)
       (setf (y surface) hotspot-y)
+      (when (first-commit-animation surface)
+	(stop-animation (first-commit-animation surface)))
       (setf (cursor-surface *compositor*) surface))))
 
 (defimplementation wl-pointer ()

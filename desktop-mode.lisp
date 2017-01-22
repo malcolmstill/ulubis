@@ -216,6 +216,7 @@
     (setf (origin-x surface) (/ (width (wl-surface surface)) 2))
     (setf (origin-y surface) (/ (height (wl-surface surface)) 2))
     (setf (scale-y surface) (/ 6 (height (wl-surface surface))))
+    (setf (first-commit-animation surface) animation)
     (start-animation animation)))
 
 #|
@@ -241,9 +242,12 @@
     (start-animation animation)))
 |#
 
+
+#|
 (defmethod first-commit ((mode desktop-mode) (surface wl-subsurface))
   ;; only animate the parent surface
   )
+|#
 
 #|
 (defmethod first-commit ((mode desktop-mode) (surface ulubis-cursor))
