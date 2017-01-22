@@ -72,7 +72,7 @@
   (find-if (lambda (client)
 	     (and (pointerp (waylisp:->client client)) (pointer-eq (waylisp:->client client) client-pointer)))
 	   (clients compositor)))
-|#
+
 
 (defun find-surface (surface-pointer compositor)
   (find-if (lambda (surface)
@@ -88,6 +88,7 @@
 			(and (pointerp (waylisp:->surface surface)) (pointer-eq (waylisp:->surface surface) surface-pointer)))
 		      (surfaces client)))
 	   (clients compositor)))
+|#
 
 (defun remove-client (client-pointer)
   (let ((client (get-client client-pointer)))

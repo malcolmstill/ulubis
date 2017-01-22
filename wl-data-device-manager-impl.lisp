@@ -18,22 +18,4 @@
   ())
 
 (def-wl-bind device-manager-bind (client (data :pointer) (version :uint32) (id :uint32))
-  (let ((ddm (make-wl-data-device-manager client 1 id)))
-    (format t "Made data-device-manager: ~A~%" ddm)))
-
-#|
-(defcallback device-manager-bind :void ((client-ptr :pointer) (data :pointer) (version :uint32) (id :uint32))
-  (bind-wl-data-device-manager client-ptr 1 id))
-|#
-
-#|
-(defcallback device-manager-bind :void
-    ((client-ptr :pointer) (data :pointer) (version :uint32) (id :uint32))
-  (format t "Device manager bind~%")
-  (let ((device-manager (wl-resource-create client-ptr wl-data-device-manager-interface 1 id)))
-    (wl-resource-set-implementation
-     device-manager  
-     wl-data-device-manager-implementation
-     (null-pointer)
-     (null-pointer))))
-|#
+  (make-wl-data-device-manager client 1 id))

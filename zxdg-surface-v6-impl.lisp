@@ -10,13 +10,7 @@
     ;; Save the wl-surface associated with the toplevel
     (setf (wl-surface toplevel) (wl-surface zxdg-surface))
     (push toplevel (surfaces (current-view *compositor*)))
-    #|
     (with-wl-array array
-      (zxdg-toplevel-v6-send-configure (->resource toplevel) 0 0 array)
-      (zxdg-surface-v6-send-configure (->resource zxdg-surface) 0))))
-    |#
-    (let ((array (foreign-alloc '(:struct wl_array))))
-      (wl-array-init array)
       (zxdg-toplevel-v6-send-configure (->resource toplevel) 0 0 array)
       (zxdg-surface-v6-send-configure (->resource zxdg-surface) 0))))
 

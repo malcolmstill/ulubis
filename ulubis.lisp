@@ -136,7 +136,11 @@
 
 (defun initialise ()
   (unwind-protect
-       (progn
+       (block main-handler
+	 (handler-bind ((error #'(lambda (e)
+				   (format t "~%Oops! Something went wrong with ulubis...we throw ourselves at your mercy! Exiting wih error:~%")
+				   (trivial-backtrace:print-backtrace e)
+				   (return-from main-handler))))
 	 #+sbcl
 	 (sb-int:set-floating-point-modes :traps nil)
 	 
@@ -254,7 +258,7 @@
 	 (setf (running *compositor*) t)
 	 (if (string-equal (symbol-name backend-name) "backend-drm-gbm")
 	     (main-loop-drm (wl-display-get-event-loop (display *compositor*)))
-	     (main-loop-sdl (wl-display-get-event-loop (display *compositor*)))))
+	     (main-loop-sdl (wl-display-get-event-loop (display *compositor*))))))
     (when (display *compositor*)
       (wl-display-destroy (display *compositor*))
       (setf (display *compositor*) nil))

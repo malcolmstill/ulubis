@@ -12,6 +12,7 @@
 	       #:cl-xkb
                #:cl-wayland
 	       #:trivial-dump-core
+	       #:trivial-backtrace
 	       #:uiop)
   :serial t
   :components ((:file "backend")
