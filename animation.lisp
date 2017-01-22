@@ -102,6 +102,16 @@
   (when toplevel
     (push animation *animations*)))
 
+(defmethod stop-animation ((animation animation) &key (run-finished-fn nil))
+  (setf (slot-value (target animation) (property animation)) (to animation))
+  (when run-finished-fn
+    (funcall (finished-fn animation)))
+  (setf *animations* (remove animation *animations*))
+  (when (not *animations*)
+    (when *timer*
+      (wl-event-source-remove *timer*)
+      (setf *timer* nil))))
+
 #|
 Let's have update animation return true if it is still running,
 otherwise false. This will allow container animations to move to other animations
@@ -147,6 +157,16 @@ etc.
   (when toplevel
     (push animation *animations*)))
 
+(defmethod stop-animation ((animation parallel-animation) &key (run-finished-fn nil))
+  (mapcar (lambda (a)
+	    (stop-animation a :run-finished-fn run-finished-fn))
+	  (animations animation))
+  (setf *animations* (remove animation *animations*))
+  (when (not *animations*)
+    (when *timer*
+      (wl-event-source-remove *timer*)
+      (setf *timer* nil))))
+  
 (defmethod update-animation ((animation parallel-animation) time)
   (let ((statuses (mapcar (lambda (a)
 			    (update-animation a time))
@@ -178,6 +198,16 @@ etc.
   (when toplevel
     (push animation *animations*)))
 
+(defmethod stop-animation ((animation sequential-animation) &key (run-finished-fn nil))
+  (mapcar (lambda (a)
+	    (stop-animation a :run-finished-fn run-finished-fn))
+	  (animations animation))
+  (setf *animations* (remove animation *animations*))
+  (when (not *animations*)
+    (when *timer*
+      (wl-event-source-remove *timer*)
+      (setf *timer* nil))))
+
 (defmethod update-animation ((animation sequential-animation) time)
   (with-slots (animations finished-fn toplevel? remaining) animation
     (let ((status (update-animation (first remaining) time)))
@@ -197,12 +227,14 @@ etc.
 		    (stop-animation animation)))))
 	  t))))
 
+#|
 (defun stop-animation (animation)
   (setf *animations* (remove animation *animations*))
   (when (not *animations*)
     (when *timer*
       (wl-event-source-remove *timer*)
       (setf *timer* nil))))
+|#
 
 (defun update-animations (callback)
   (when *animations*

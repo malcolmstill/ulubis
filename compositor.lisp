@@ -14,6 +14,7 @@
    (backend :accessor backend :initarg :backend :initform nil)
    (display :accessor display :initarg :display :initform nil)
    (devices :accessor devices :initarg :devices :initform nil)
+   (callbacks :accessor callbacks :initarg :callbacks :initform nil)
    (->output :accessor ->output :initarg :->output :initform nil)
    (event-loop :accessor event-loop :initarg :event-loop :initform nil)
    (screen-width :accessor screen-width :initarg :screen-width :initform 640)
@@ -71,7 +72,7 @@
   (find-if (lambda (client)
 	     (and (pointerp (waylisp:->client client)) (pointer-eq (waylisp:->client client) client-pointer)))
 	   (clients compositor)))
-|#
+
 
 (defun find-surface (surface-pointer compositor)
   (find-if (lambda (surface)
@@ -87,8 +88,17 @@
 			(and (pointerp (waylisp:->surface surface)) (pointer-eq (waylisp:->surface surface) surface-pointer)))
 		      (surfaces client)))
 	   (clients compositor)))
+|#
 
-
+(defun remove-client (client-pointer)
+  (let ((client (get-client client-pointer)))
+    (loop :for resource :in (resources client) :do
+       (format t "resource: ~A~%" resource)
+       (remove-surface resource *compositor*))
+    (setf (resources client) nil)
+    (setf waylisp::*clients* (remove-if (lambda (client)
+				 (and (pointerp (waylisp:->client client)) (pointer-eq (waylisp:->client client) client-pointer)))
+			       waylisp::*clients*))))
 
 (defun view-has-surface? (surface view)
   (when (find surface (surfaces view))
@@ -99,13 +109,13 @@
      :when (view-has-surface? surface view) :collect it))
 
 (defun remove-surface-from-view (surface view)
+  (format t "surface: ~A, view: ~A~%" surface view)
   (when (equalp (active-surface view) surface)
     (setf (active-surface view) nil))
   (setf (surfaces view) (remove surface (surfaces view))))
 
-(defun remove-surface (surface-pointer compositor)
-  (let* ((surface (find-surface surface-pointer compositor))
-	 (views (views-with-surface surface)))
+(defun remove-surface (surface compositor)
+  (let* ((views (views-with-surface surface)))
     (loop :for view :in views :do (remove-surface-from-view surface view))
     ;; TODO do we need to do the same for MOVING-SURFACE and RESIZING-SURFACE
     (when (equalp surface (pointer-surface *compositor*))
@@ -142,29 +152,32 @@
 (defun pointer-over-input-region-p (pointer-x pointer-y surface-w/input-region)
   (let ((global-x (x surface-w/input-region))
 	(global-y (y surface-w/input-region))
-	(rects (waylisp:rects (waylisp:input-region surface-w/input-region))))
+	(rects (rects (input-region (wl-surface surface-w/input-region)))))
     (loop :for rect :in rects
-       :do (with-slots (waylisp:x waylisp:y waylisp:width waylisp:height waylisp:operation) rect
-	     (case waylisp:operation
-	       (:add (when (pointer-over-p (- pointer-x global-x) (- pointer-y global-y) waylisp:x waylisp:y waylisp:width waylisp:height)
+       :do (with-slots (x y width height operation) rect
+	     (case operation
+	       (:add (when (pointer-over-p (- pointer-x global-x) (- pointer-y global-y) x y width height)
 		       (return-from pointer-over-input-region-p t)))
-	       (:subtract (when (pointer-over-p (- pointer-x global-x) (- pointer-y global-y) waylisp:x waylisp:y waylisp:width waylisp:height)
+	       (:subtract (when (pointer-over-p (- pointer-x global-x) (- pointer-y global-y) x y width height)
 			    (return-from pointer-over-input-region-p nil))))))
     nil))
 
-(defmethod pointer-over-surface-p ((surface ulubis-surface) pointer-x pointer-y)
-  (with-slots (x y waylisp:width waylisp:height) surface
-    (pointer-over-p pointer-x pointer-y x y waylisp:width waylisp:height)))
+(defmethod pointer-over-surface-p ((surface isurface) pointer-x pointer-y)
+  (with-slots (x y wl-surface) surface
+    (with-slots (width height) wl-surface
+      (pointer-over-p pointer-x pointer-y x y width height))))
 
+#|
 (defmethod pointer-over-surface-p ((surface ulubis-cursor) pointer-x pointer-y)
   nil)
+|#
 
 (defun surface-under-pointer (x y view)
   (find-if (lambda (surface)
 	     (or (and (pointer-over-surface-p surface x y) ;; pointer is over client and has no input-region
-		      (not (waylisp:input-region surface)))
+		      (not (input-region (wl-surface surface))))
 		 (and (pointer-over-surface-p surface x y) ;; or pointer is over client, has an input-region, and pointer is over input-region
-		      (waylisp:input-region surface)
+		      (input-region (wl-surface surface))
 		      (pointer-over-input-region-p x y surface))))
 	   (surfaces view)))      
 

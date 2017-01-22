@@ -11,7 +11,15 @@
       (gl:enable :blend)
       (draw-cursor (cursor-surface *compositor*) nil (pointer-x *compositor*) (pointer-y *compositor*) (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1 -1))
       (swap-buffers (backend *compositor*))
-      (setf (render-needed *compositor*) nil))))
+      (setf (render-needed *compositor*) nil)
+      (loop :for callback :in (callbacks *compositor*) :do
+	 (when (find (client callback) waylisp::*clients*)
+	   ;; We can end up getting a frame request after the client has been deleted
+	   ;; if we try and send-done or destroy we will get a memory fault
+	   (wl-callback-send-done (->resource callback) (get-milliseconds))
+	   (wl-resource-destroy (->resource callback)))
+	 (remove-resource callback))
+      (setf (callbacks *compositor*) nil))))
 
 (defcallback input-callback :void ((fd :int) (mask :int) (data :pointer))
   (process-events (backend *compositor*)))
@@ -60,6 +68,7 @@
 	(waylisp:resize surface width height (get-milliseconds) :activate? t)
 	(waylisp:resize surface width height (get-milliseconds) :activate? nil))))
 
+#|
 (defun deactivate-surface (surface)
   (when surface
     (waylisp:keyboard-send-leave surface)
@@ -78,10 +87,25 @@
        (progn
 	 (deactivate-surface active-surface)
 	 (setf active-surface surface)
-	 (waylisp:keyboard-send-enter surface)
-	 (waylisp:keyboard-send-modifiers surface (mods-depressed *compositor*) (mods-latched *compositor*) (mods-locked *compositor*) (mods-group *compositor*))
+	 (keyboard-send-enter surface)
+	 (keyboard-send-modifiers surface
+				  (mods-depressed *compositor*)
+				  (mods-latched *compositor*)
+				  (mods-locked *compositor*)
+				  (mods-group *compositor*))
 	 (when (or (ulubis-xdg-surface? surface) (ulubis-zxdg-toplevel? surface))
 	   (waylisp:activate surface (get-milliseconds))))))))
+|#
+
+(defun activate-surface (surface mode)
+  (with-slots (view) mode
+    (with-slots (active-surface) view
+      (setf active-surface
+	    (activate surface active-surface
+		      (list (mods-depressed *compositor*)
+			    (mods-latched *compositor*)
+			    (mods-locked *compositor*)
+			    (mods-group *compositor*)))))))
 
 (defun call-mouse-motion-handler (time x y)
   (when (show-cursor *compositor*)
@@ -112,7 +136,11 @@
 
 (defun initialise ()
   (unwind-protect
-       (progn
+       (block main-handler
+	 (handler-bind ((error #'(lambda (e)
+				   (format t "~%Oops! Something went wrong with ulubis...we throw ourselves at your mercy! Exiting wih error:~%")
+				   (trivial-backtrace:print-backtrace e)
+				   (return-from main-handler))))
 	 #+sbcl
 	 (sb-int:set-floating-point-modes :traps nil)
 	 
@@ -146,16 +174,49 @@
 	 ;; Create our wayland display
 	 (setf (display *compositor*) (wl-display-create))
 	 (format t "Opened socket: ~A~%" (wl-display-add-socket-auto (display *compositor*)))
+
+	 ;; Initialise shared memory
+
 	 
 	 (initialize-wayland-server-interfaces) 
 	 (initialize-xdg-shell-server-interfaces)
-	 (initialize-zxdg-shell-server-interfaces) 
-	 (set-implementations) 
+	 (initialize-zxdg-shell-v6-server-interfaces) 
+	 ;;(set-implementations)
+	 (set-implementation-wl-surface)
+	 (set-implementation-wl-seat)
+	 (set-implementation-wl-pointer)
+	 (set-implementation-wl-seat)
+	 ;;(set-implementation-wl-callback)
+	 (set-implementation-wl-region)
+	 (set-implementation-wl-compositor)
+	 (set-implementation-wl-subcompositor)
+	 (set-implementation-wl-subsurface)
+	 (set-implementation-wl-output)	 
+	 (set-implementation-wl-shell)
+	 (set-implementation-wl-shell-surface)
+	 (set-implementation-wl-data-device-manager)
+	 (set-implementation-wl-data-device)
+	 (set-implementation-wl-data-source)
+	 (set-implementation-zxdg-shell-v6)
+	 (set-implementation-zxdg-surface-v6)
+	 (set-implementation-zxdg-toplevel-v6)
+	 (set-implementation-xdg-shell)
+	 (set-implementation-xdg-surface)
+
+	 (wl-display-init-shm (display *compositor*))
+
+	 (wl-global-create (display *compositor*) 
+			   wl-output-interface
+			   2
+			   (null-pointer)
+			   (callback output-bind))
+
 	 (wl-global-create (display *compositor*)
 			   wl-compositor-interface
 			   3
 			   (null-pointer)
 			   (callback compositor-bind))
+	 
 	 (wl-global-create (display *compositor*)
 			   wl-shell-interface
 			   1
@@ -164,43 +225,40 @@
 
 	 (wl-global-create (display *compositor*)
 			   wl-seat-interface
-			   4
+			   3
 			   (null-pointer)
 			   (callback seat-bind))
+
 	 (wl-global-create (display *compositor*)
 			   wl-data-device-manager-interface
 			   3
 			   (null-pointer)
 			   (callback device-manager-bind))
-	 (wl-global-create (display *compositor*) 
-			   wl-output-interface
-			   2
-			   (null-pointer)
-			   (callback output-bind))
+
 	 (wl-global-create (display *compositor*) 
 			   wl-subcompositor-interface
 			   1
 			   (null-pointer)
 			   (callback subcompositor-bind))
+	 
 	 (wl-global-create (display *compositor*)
 			   zxdg-shell-v6-interface
 			   1
 			   (null-pointer)
 			   (callback zxdg-shell-v6-bind))
+	 
 	 (wl-global-create (display *compositor*)
 			   xdg-shell-interface
 			   1
 			   (null-pointer)
 			   (callback xdg-shell-bind))
-	 
-	 ;; Initialise shared memory
-	 (wl-display-init-shm (display *compositor*))
+
 	 ;; Run main loop
 	 ;; (format t "Running main loop~%")
 	 (setf (running *compositor*) t)
 	 (if (string-equal (symbol-name backend-name) "backend-drm-gbm")
 	     (main-loop-drm (wl-display-get-event-loop (display *compositor*)))
-	     (main-loop-sdl (wl-display-get-event-loop (display *compositor*)))))
+	     (main-loop-sdl (wl-display-get-event-loop (display *compositor*))))))
     (when (display *compositor*)
       (wl-display-destroy (display *compositor*))
       (setf (display *compositor*) nil))

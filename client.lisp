@@ -1,6 +1,7 @@
 
 (in-package :ulubis)
 
+#|
 (defclass ulubis-surface (waylisp:wl-surface)
   ((x :accessor x :initarg :x :initform 0)
    (y :accessor y :initarg :y :initform 0)
@@ -49,3 +50,5 @@
 
 (defun ulubis-cursor? (surface)
   (eql (class-of surface) (find-class 'ulubis-cursor)))
+
+|#
