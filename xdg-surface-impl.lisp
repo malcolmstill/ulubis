@@ -9,7 +9,8 @@
   (call-next-method)
   (with-wl-array array
     (setf (mem-aref (wl-array-add array 4) :int32) 4)
-    (xdg-surface-send-configure (->resource surface) 0 0 array (get-milliseconds))))
+    (xdg-surface-send-configure (->resource surface) 0 0 array (get-milliseconds)))
+  surface)
 
 (defmethod deactivate ((surface xdg-surface))
   (call-next-method)
