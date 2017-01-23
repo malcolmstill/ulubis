@@ -1,6 +1,6 @@
 
 (in-package :ulubis)
 
-(defimplementation wl-shell-surface (isurface)
+(defimplementation wl-shell-surface (isurface ianimatable)
   ()
   ())
