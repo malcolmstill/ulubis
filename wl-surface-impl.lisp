@@ -47,3 +47,8 @@
    (role :accessor role :initarg :role :initform nil)
    (buffer :accessor buffer :initarg :buffer :initform nil)
    (first-commit? :accessor first-commit? :initarg :first-commit? :initform t)))
+
+;; Override print object
+(defmethod print-object ((obj wl-surface) out)
+  (print-unreadable-object (obj out :type t)
+    (format out "~s@~X [~Ax~A]" (id obj) (cffi:pointer-address (->resource obj)) (width obj) (height obj))))
