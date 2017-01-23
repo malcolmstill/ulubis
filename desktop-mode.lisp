@@ -238,7 +238,7 @@
 			   :surface-translate (m4:translation (cepl:v! (x surface) (y surface) 0.0))
 			   :texture texture
 			   :alpha (opacity surface))))
-    (loop :for subsurface :in (subsurfaces (wl-surface surface))
+    (loop :for subsurface :in (reverse (subsurfaces (wl-surface surface)))
        :do (render subsurface view-fbo))))
 
 (defmethod render ((surface wl-subsurface) &optional view-fbo)
@@ -261,7 +261,7 @@
 								       0.0))
 			   :texture texture
 			   :alpha (opacity surface))))
-    (loop :for subsurface :in (subsurfaces (wl-surface surface))
+    (loop :for subsurface :in (reverse (subsurfaces (wl-surface surface)))
        :do (render subsurface view-fbo))))
 
 (defmethod render ((mode desktop-mode) &optional view-fbo)

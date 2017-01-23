@@ -1,7 +1,7 @@
 
 (in-package :ulubis)
 
-(def-wl-callback set-position (client subsurface (x :int) (y :int))
+(def-wl-callback set-position (client subsurface (x :int32) (y :int32))
   (when subsurface
     (setf (x subsurface) x)
     (setf (y subsurface) y)))
