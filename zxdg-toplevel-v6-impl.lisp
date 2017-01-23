@@ -42,4 +42,10 @@
     (zxdg-toplevel-v6-send-configure (->resource surface) 0 0 array)
     (zxdg-surface-v6-send-configure (->resource (zxdg-surface-v6 surface)) 0)))
 
-
+(defmethod resize ((surface zxdg-toplevel-v6) width height time &key (activate? t))
+  (with-wl-array array
+    (setf (mem-aref (wl-array-add array 4) :int32) 3)
+    (when activate?
+      (setf (mem-aref (wl-array-add array 4) :int32) 4))
+    (zxdg-toplevel-v6-send-configure (->resource surface) (round width) (round height) array)
+    (zxdg-surface-v6-send-configure (->resource (zxdg-surface-v6 surface)) 0)))
