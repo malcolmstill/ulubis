@@ -87,6 +87,8 @@ Ulubis depends on:
 - [cepl](https://github.com/cbaggers/cepl)
 - [vydd's easing library](https://github.com/vydd/easing)
 - [osicat](https://github.com/osicat/osicat)
+- trivial-dump-core
+- trivial-backtrace
 
 Ulubis has two backends: [ulubis-sdl](https://github.com/malcolmstill/ulubis-sdl) (an SDL2 backend) and [ulubis-drm-gbm](https://github.com/malcolmstill/ulubis-drm-gbm) (a DRM/GBM backend). The DRM/GBM backend is intended to be *the* backend whilst the SDL2 is intended for testing on X.
 
