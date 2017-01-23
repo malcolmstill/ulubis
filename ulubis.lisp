@@ -63,10 +63,10 @@
 	(waylisp:resize surface width height (get-milliseconds) :activate? nil))))
 
 (defun resize-surface-absolute (surface view width height)
-  (when (and (or (ulubis-zxdg-toplevel? surface) (ulubis-xdg-surface? surface)) (> width 32) (> height 32))
+  (when (> width 32) (> height 32)
     (if (equalp surface (active-surface view))
-	(waylisp:resize surface width height (get-milliseconds) :activate? t)
-	(waylisp:resize surface width height (get-milliseconds) :activate? nil))))
+	(resize surface width height (get-milliseconds) :activate? t)
+	(resize surface width height (get-milliseconds) :activate? nil))))
 
 #|
 (defun deactivate-surface (surface)

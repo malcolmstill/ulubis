@@ -135,18 +135,17 @@
   ;; Resize window
   (when (and (= button #x110) (= state 1) (= (+ Gui Shift) (mods-depressed *compositor*)))
     (let ((surface (surface-under-pointer (pointer-x *compositor*) (pointer-y *compositor*) (view mode))))
-      (when (or (ulubis-xdg-surface? surface) (ulubis-zxdg-toplevel? surface))
-	(let ((width (if (waylisp:input-region surface)
-			 (waylisp:width (first (last (waylisp:rects (waylisp:input-region surface)))))
-			 (waylisp:width surface)))
-	      (height (if (waylisp:input-region surface)
-			  (waylisp:height (first (last (waylisp:rects (waylisp:input-region surface)))))
-			  (waylisp:height surface))))
-	  (setf (resizing-surface *compositor*) (make-resize-op :surface surface
-								:pointer-x (pointer-x *compositor*)
-								:pointer-y (pointer-y *compositor*)
-								:surface-width width
-								:surface-height height))))))
+      (let ((width (if (input-region (wl-surface surface))
+		       (width (first (last (rects (input-region (wl-surface surface))))))
+		       (width (wl-surface surface))))
+	    (height (if (input-region (wl-surface surface))
+			(height (first (last (rects (input-region (wl-surface surface))))))
+			(height (wl-surface surface)))))
+	(setf (resizing-surface *compositor*) (make-resize-op :surface surface
+							      :pointer-x (pointer-x *compositor*)
+							      :pointer-y (pointer-y *compositor*)
+							      :surface-width width
+							      :surface-height height)))))
 
   (when (and (resizing-surface *compositor*) (= button #x110) (= state 0))
     (setf (resizing-surface *compositor*) nil))
