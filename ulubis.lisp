@@ -122,10 +122,20 @@
   (new-xkb-state *compositor*)
   (setf (render-needed *compositor*) t))
 
+;; Kludge for SDL backend on multi-desktop WMs to avoid sticky mods.
+;; Seems like sway uses wl_keyboard_listener. We probably should use
+;; it too instead of the whole thing.
+(defvar *depressed-keys* (list))
+
 (defun call-keyboard-handler (time key state)
   ;; (format t "Key: ~A, state: ~A~%" key state)
-  (xkb:xkb-state-key-get-one-sym (xkb-state *compositor*) (+ key 8))
-  (xkb:xkb-state-update-key (xkb-state *compositor*) (+ key 8) state)
+  (if (and (= state 1)
+	   (member key *depressed-keys*))
+      (format t "!!! Not updating key state")
+      (xkb:xkb-state-update-key (xkb-state *compositor*) (+ key 8) state))
+  (if (= state 1)
+      (push key *depressed-keys*)
+      (setf *depressed-keys* (delete key *depressed-keys*)))
   (setf (mods-depressed *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 1))
   ;; (format t "Mods: ~A~%" (mods-depressed *compositor*))
   (setf (mods-latched *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 2))
