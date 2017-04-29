@@ -164,10 +164,10 @@
 				button
 				state)))))
 
-(defkeybinding (:pressed 16 Ctrl Shift) (mode) (desktop-mode)
+(defkeybinding (:pressed "q" Ctrl Shift) (mode) (desktop-mode)
   (uiop:quit))
 
-(defkeybinding (:pressed 20 Ctrl Shift) (mode) (desktop-mode)
+(defkeybinding (:pressed "T" Ctrl Shift) (mode) (desktop-mode)
   (run-program "/usr/bin/weston-terminal"))
 
 #|
@@ -175,10 +175,10 @@
 		 (show-menu 'root-menu))
 |#
 
-(defkeybinding (:pressed 15 Gui) (mode) (desktop-mode)
+(defkeybinding (:pressed "Tab" Gui) (mode) (desktop-mode)
   (push-mode (view mode) (make-instance 'alt-tab-mode)))
 
-(defkeybinding (:pressed 106 Gui) (mode) (desktop-mode)
+(defkeybinding (:pressed "Right" Gui) (mode) (desktop-mode)
   (with-slots (view) mode
     (let* ((views (views *compositor*))
 	   (count (length views))
@@ -187,7 +187,7 @@
 	(setf (current-view *compositor*) (nth (+ pos 1) views)))))
   (setf (render-needed *compositor*) t))
 
-(defkeybinding (:pressed 105 Gui) (mode) (desktop-mode)
+(defkeybinding (:pressed "Left" Gui) (mode) (desktop-mode)
   (with-slots (view) mode
     (let* ((views (views *compositor*))
 	   (count (length views))

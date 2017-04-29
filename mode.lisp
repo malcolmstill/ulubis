@@ -23,7 +23,7 @@
 (defgeneric init-mode (mode))
 (defgeneric mouse-motion-handler (mode time delta-x delta-y))
 (defgeneric mouse-button-handler (mode time button state))
-(defgeneric keyboard-handler (mode time key state))
+(defgeneric keyboard-handler (mode time keycode keysym state))
 (defgeneric render (mode &optional view-fbo))
 (defgeneric first-commit (mode surface))
 
@@ -44,18 +44,32 @@
 ;; We create a dummy instance of each mode. Not pretty
 ;; but alternatively we can use mop:class-prototype
 ;; to get access to a non-consed class-allocated slot
-(defmacro defkeybinding ((op key &rest mods) (mode-ref) modes &body body)
-  (let ((mode (gensym "mode"))
-	(instance (gensym "instance")))
-    `(loop :for ,mode :in ',modes :do
-	(let ((,instance (make-instance ,mode)))
-	  (push (make-instance 'key-binding
-			       :op ,op
-			       :key ,key
-			       :mods (logior ,@mods)
-			       :fn (lambda (,mode-ref)
-				     ,@body))
-		(key-bindings ,instance))))))
+(defun register-keybinding (op rawkey mods modes fn)
+  (let ((key (etypecase rawkey
+	       (string (xkb:get-keysym-from-name rawkey :case-insensitive t))
+	       (number rawkey)
+	       (null nil))))
+    (if (eq key 0)
+	(format t "Unknown key ~A~%" rawkey)
+	(loop :for mode :in modes :do
+	   (let ((instance (make-instance mode))
+		 (new-kb (make-instance 'key-binding
+					:op op
+					:key key
+					:mods (apply #'logior mods)
+					:fn fn))
+		 (test (lambda (new old)
+			 (and (eq (op new) (op old))
+			      (eq (key new) (key old))
+			      (eq (mods new) (mods old))))))
+	     (setf (key-bindings instance) (delete new-kb (key-bindings instance) :test test))
+	     (push new-kb (key-bindings instance)))))))
+
+(defmacro defkeybinding ((op rawkey &rest mods) (mode-ref) modes &body body)
+  `(register-keybinding ,op ,rawkey (list ,@mods) ',modes
+			(lambda (,mode-ref)
+			  (declare (ignorable ,mode-ref))
+			  ,@body)))
 
 (defun cancel-mods (surface)
   (when (and surface (keyboard (client surface)))
@@ -65,12 +79,13 @@
 				0
 				0)))
 
-(defmethod keyboard-handler (mode time akey state)
-  (let ((surface (active-surface (view mode))))
+(defmethod keyboard-handler (mode time keycode keysym state)
+  (let ((surface (active-surface (view mode)))
+	(keysym (xkb:tolower keysym)))
     (loop :for key-binding :in (key-bindings mode) :do
        (with-slots (op key mods fn) key-binding
 	 (when (and (eq op :pressed)
-		    (or (not akey) (= akey key))
+		    (or (not keysym) (= keysym key))
 		    (= 1 state)
 		    (or (zerop mods) (= (mods-depressed *compositor*) mods)))
 	   (format t "Calling pressed~%")
@@ -79,14 +94,14 @@
 	   (return-from keyboard-handler))
 	 (when (and (eq op :released)
 		    (= 0 state)
-		    (or (not key) (and akey (= akey key) (= state 0)))
+		    (or (not key) (and keysym (= keysym key) (= state 0)))
 		    (zerop (logand (mods-depressed *compositor*) mods)))
 	   (format t "Calling released~%")
 	   (cancel-mods surface)
 	   (funcall fn mode)
 	   (return-from keyboard-handler))))
-    (when (and surface akey (keyboard (client surface)))
-      (wl-keyboard-send-key (->resource (keyboard (client surface))) 0 time akey state))
+    (when (and surface keycode (keyboard (client surface)))
+      (wl-keyboard-send-key (->resource (keyboard (client surface))) 0 time keycode state))
     (when (and surface (keyboard (client surface)))
       (wl-keyboard-send-modifiers (->resource (keyboard (client surface))) 0
 				  (mods-depressed *compositor*)
