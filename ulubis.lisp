@@ -127,22 +127,29 @@
 ;; it too instead of the whole thing.
 (defvar *depressed-keys* (list))
 
-(defun call-keyboard-handler (time key state)
-  ;; (format t "Key: ~A, state: ~A~%" key state)
-  (if (and (= state 1)
-	   (member key *depressed-keys*))
-      (format t "!!! Not updating key state")
-      (xkb:xkb-state-update-key (xkb-state *compositor*) (+ key 8) state))
-  (if (= state 1)
-      (push key *depressed-keys*)
-      (setf *depressed-keys* (delete key *depressed-keys*)))
-  (setf (mods-depressed *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 1))
-  ;; (format t "Mods: ~A~%" (mods-depressed *compositor*))
-  (setf (mods-latched *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 2))
-  (setf (mods-locked *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 4))
-  (setf (mods-group *compositor*) (xkb:xkb-state-serialize-layout (xkb-state *compositor*) 64))
-  (when (and (numberp key) (numberp state))
-    (keyboard-handler (current-mode (current-view *compositor*)) time key state)))
+(defun call-keyboard-handler (time keycode state)
+  (let ((keysym (xkb:xkb-state-key-get-one-sym (xkb-state *compositor*) (+ keycode 8))))
+    (format t "Keycode: ~A, Keysym: ~A, state: ~A~%" keycode keysym state)
+    (if (and (= state 1)
+	     (member keycode *depressed-keys*))
+	(progn
+	  ;;(format t "!!! Not updating key state~%")
+	  )
+	(xkb:xkb-state-update-key (xkb-state *compositor*) (+ keycode 8) state))
+    (if (= state 1)
+	(push keycode *depressed-keys*)
+	(setf *depressed-keys* (delete keycode *depressed-keys*)))
+    (setf (mods-depressed *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 1))
+    ;; (format t "Mods: ~A~%" (mods-depressed *compositor*))
+    (setf (mods-latched *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 2))
+    (setf (mods-locked *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 4))
+    (setf (mods-group *compositor*) (xkb:xkb-state-serialize-layout (xkb-state *compositor*) 64))
+    (when (and (numberp keysym) (numberp state))
+      (keyboard-handler (current-mode (current-view *compositor*))
+			time
+			keycode
+			keysym
+			state))))
 
 (defun initialise ()
   (unwind-protect

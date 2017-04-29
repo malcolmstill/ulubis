@@ -33,7 +33,7 @@
 (defmethod mouse-button-handler ((mode alt-tab-mode) time button state)
   )
 
-(defkeybinding (:pressed 15) (mode) (alt-tab-mode)
+(defkeybinding (:pressed "Tab") (mode) (alt-tab-mode)
   (with-slots (surfaces selection) mode
     (when (> (length surfaces) 0)
       (setf selection (mod (incf selection) (length surfaces)))
