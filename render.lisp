@@ -284,25 +284,55 @@
 			   :texture texture
 			   :alpha (opacity surface))))))
 
-(cepl:defun-g cursor-vertex-shader ((vert :vec3) &uniform (ortho :mat4))
-  (values (* ortho (cepl:v! vert 1))
-	  (cepl:v! 1 1 1 1)))
-
-(cepl:defun-g cursor-fragment-shader ((color :vec4))
-  color)
+(cepl:defun-g cursor-vertex-shader ((vert cepl:g-pt) &uniform (ortho :mat4))
+  (values (* ortho (cepl:v! (cepl:pos vert) 1))
+	  (cepl:tex vert)))
 
 (cepl:def-g-> cursor-pipeline ()
-  (cursor-vertex-shader :vec3) (cursor-fragment-shader :vec4))
-    
+  (cursor-vertex-shader cepl:g-pt) (passthrough-frag :vec2))
+
+(defparameter *default-cursor* nil)
+
+(defun init-cursor ()
+  (unless *default-cursor*
+    (setf *default-cursor* (make-instance 'cairo-surface
+                                          :allow-gl t
+                                          :width 32
+                                          :height 32))
+    (setf (draw-func *default-cursor*)
+          (lambda ()
+            (cl-cairo2:set-source-rgba 1 1 1 0)
+            (cl-cairo2:paint)
+            (cl-cairo2:move-to 1 1)
+            (cl-cairo2:line-to 1 16)
+            (cl-cairo2:line-to 4 13)
+            (cl-cairo2:line-to 6 20)
+            (cl-cairo2:line-to 8 19)
+            (cl-cairo2:line-to 6 12)
+            (cl-cairo2:line-to 9 12)
+            (cl-cairo2:line-to 1 1)
+            (cl-cairo2:set-source-rgba 0 0 0 1)
+            (cl-cairo2:stroke-preserve)
+            (cl-cairo2:set-source-rgba 1 1 1 1)
+            (cl-cairo2:fill-path)
+            ))))
+
 (defmethod draw-cursor ((cursor (eql nil)) fbo x y ortho)
+  (unless *default-cursor*
+    (init-cursor)
+    (cairo-surface-redraw *default-cursor*))
   (let* ((array (cepl:make-gpu-array
-		 (list (cepl:v! x y 0)
-		       (cepl:v! x (+ y 32) 0)
-		       (cepl:v! (+ x 16) (+ y 24) 0))
-		 :dimensions 3 :element-type :vec3))
+		 `((,(cepl:v! x y 0)               ,(cepl:v! 0 0))
+                   (,(cepl:v! x (+ y 32) 0)        ,(cepl:v! 0 1))
+                   (,(cepl:v! (+ x 32) y 0)        ,(cepl:v! 1 0))
+                   (,(cepl:v! (+ x 32) (+ y 32) 0) ,(cepl:v! 1 1))
+                   (,(cepl:v! (+ x 32) y 0)        ,(cepl:v! 1 0))
+                   (,(cepl:v! x (+ y 32) 0)        ,(cepl:v! 0 1)))
+		 :element-type 'cepl:g-pt))
 	 (vertex-stream (cepl:make-buffer-stream array)))
     (map-g-default/fbo fbo #'cursor-pipeline vertex-stream
-	   :ortho ortho)
+                       :ortho ortho
+                       :texture (cepl:sample (cairo-surface->gl-texture *default-cursor*)))
     (cepl:free vertex-stream)
     (cepl:free array)
     (setf (render-needed *compositor*) t)))

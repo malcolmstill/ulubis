@@ -164,10 +164,10 @@
 				button
 				state)))))
 
-(defkeybinding (:pressed "q" Ctrl Shift) (mode) (desktop-mode)
+(defkeybinding (:pressed "q" Ctrl Shift) () (desktop-mode)
   (uiop:quit))
 
-(defkeybinding (:pressed "T" Ctrl Shift) (mode) (desktop-mode)
+(defkeybinding (:pressed "T" Ctrl Shift) () (desktop-mode)
   (run-program "/usr/bin/weston-terminal"))
 
 #|
