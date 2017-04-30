@@ -310,7 +310,7 @@
             (cl-cairo2:line-to 8 19)
             (cl-cairo2:line-to 6 12)
             (cl-cairo2:line-to 9 12)
-            (cl-cairo2:line-to 1 1)
+            (cl-cairo2:close-path)
             (cl-cairo2:set-source-rgba 0 0 0 1)
             (cl-cairo2:stroke-preserve)
             (cl-cairo2:set-source-rgba 1 1 1 1)
