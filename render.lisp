@@ -295,7 +295,7 @@
 
 (defparameter *default-cursor* nil)
 
-(defun init-cursor ()
+(defun init-vector-cursor ()
   (unless *default-cursor*
     (setf *default-cursor* (make-instance 'cairo-surface
                                           :allow-gl t
@@ -320,18 +320,31 @@
             (cl-cairo2:fill-path)
             ))))
 
+(defun init-image-cursor ()
+  (unless *default-cursor*
+    (setf *default-cursor* (make-instance 'cairo-surface
+                                          :allow-gl t
+                                          :filename "assets/cursor.png"))))
+
+(defun make-g-pt-quad (top bottom left right)
+  `((,(cepl:v! left top 0)     ,(cepl:v! 0 0))
+    (,(cepl:v! left bottom 0)  ,(cepl:v! 0 1))
+    (,(cepl:v! right top 0)    ,(cepl:v! 1 0))
+    (,(cepl:v! right bottom 0) ,(cepl:v! 1 1))
+    (,(cepl:v! right top 0)    ,(cepl:v! 1 0))
+    (,(cepl:v! left bottom 0)  ,(cepl:v! 0 1))))
+
 (defmethod draw-cursor ((cursor (eql nil)) fbo x y ortho)
   (unless *default-cursor*
-    (init-cursor)
+    (init-image-cursor)
     (cairo-surface-redraw *default-cursor*))
-  (let* ((array (cepl:make-gpu-array
-		 `((,(cepl:v! (- x 32) (- y 32) 0) ,(cepl:v! 0 0))
-                   (,(cepl:v! (- x 32) (+ y 32) 0) ,(cepl:v! 0 1))
-                   (,(cepl:v! (+ x 32) (- y 32) 0) ,(cepl:v! 1 0))
-                   (,(cepl:v! (+ x 32) (+ y 32) 0) ,(cepl:v! 1 1))
-                   (,(cepl:v! (+ x 32) (- y 32) 0) ,(cepl:v! 1 0))
-                   (,(cepl:v! (- x 32) (+ y 32) 0) ,(cepl:v! 0 1)))
-		 :element-type 'cepl:g-pt))
+  (let* ((halfw (/ (width *default-cursor*) 2))
+         (halfh (/ (height *default-cursor*) 2))
+         (array (cepl:make-gpu-array (make-g-pt-quad (- y halfh)
+                                                     (+ y halfh)
+                                                     (- x halfw)
+                                                     (+ x halfw))
+                                     :element-type 'cepl:g-pt))
 	 (vertex-stream (cepl:make-buffer-stream array)))
     (map-g-default/fbo fbo #'cursor-pipeline vertex-stream
                        :ortho ortho

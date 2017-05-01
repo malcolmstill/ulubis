@@ -5,18 +5,20 @@
   ((surface :reader surface :initform nil)
    (context :reader context :initform nil)
    (gl-texture :reader gl-texture :initform nil)
-   (width :reader width :initarg :width :initform 64)
-   (height :reader height :initarg :height :initform 64)
    (allow-gl :reader allow-gl :initarg :allow-gl :initform nil)
    (gl-texture-up-to-date :initform nil)
    (draw-func :accessor draw-func :initarg :draw-func :initform (lambda ()))))
 
-(defmethod initialize-instance :after ((instance cairo-surface) &key)
+(defmethod initialize-instance :after ((instance cairo-surface) &key width height filename)
   (with-slots (surface context) instance
-    (setf surface
-          (cl-cairo2:create-image-surface :argb32 (width instance) (height instance)))
-    (setf context
-          (cl-cairo2:create-context surface)))
+    (if filename
+        (if (and width height)
+            (error "Need to specify either :filename or :width and :height")
+            (setf surface (cl-cairo2:image-surface-create-from-png filename)))
+        (if (and width height)
+            (setf surface (cl-cairo2:create-image-surface :argb32 width height))
+            (error "Need to specify either :filename or :width and :height")))
+    (setf context (cl-cairo2:create-context surface)))
   (trivial-garbage:finalize instance #'finalize-instance))
 
 (defgeneric finalize-instance (instance))
@@ -24,6 +26,12 @@
   (with-slots (surface gl-texture) instance
     (when gl-texture
       (cepl:free gl-texture))))
+
+(defmethod width ((instance cairo-surface))
+  (cl-cairo2:width (surface instance)))
+
+(defmethod height ((instance cairo-surface))
+  (cl-cairo2:height (surface instance)))
 
 (defgeneric cairo-surface-redraw (instance &optional custom-draw-func)
   (:documentation "Calls DRAW-FUNC to update surface pixels.
@@ -43,11 +51,12 @@ called more often than CAIRO-SURFACE->GL-TEXTURE"))
 (defmethod texture-of ((instance cairo-surface))
   (unless (allow-gl instance)
     (error "This cairo surface isn't set up to upload pixels to GPU.~%Must create it with :allow-gl t"))
-  (with-slots (surface gl-texture gl-texture-up-to-date width height) instance
+  (with-slots (surface gl-texture gl-texture-up-to-date) instance
     (unless gl-texture-up-to-date
       (cl-cairo2:surface-flush surface)
       (let* ((cairo-data (cl-cairo2:image-surface-get-data surface :pointer-only t))
-             (cepl-data (cepl:make-c-array-from-pointer (list width height)
+             (cepl-data (cepl:make-c-array-from-pointer (list (width instance)
+                                                              (height instance))
                                                         :uint8-vec4
                                                         cairo-data)))
         (if gl-texture
