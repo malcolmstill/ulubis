@@ -12,7 +12,7 @@
 (defmethod initialize-instance :after ((instance cairo-surface) &key width height filename)
   (with-slots (surface context) instance
     (if filename
-        (if (and width height)
+        (if (or width height)
             (error "Need to specify either :filename or :width and :height")
             (setf surface (cl-cairo2:image-surface-create-from-png filename)))
         (if (and width height)
@@ -36,7 +36,7 @@
 (defgeneric cairo-surface-redraw (instance &optional custom-draw-func)
   (:documentation "Calls DRAW-FUNC to update surface pixels.
 The call itself doesn't upload pixels to GPU, so it can be safely
-called more often than CAIRO-SURFACE->GL-TEXTURE"))
+called more often than TEXTURE-OF"))
 
 (defmethod cairo-surface-redraw ((instance cairo-surface) &optional custom-draw-func)
   (with-slots (surface context gl-texture-up-to-date) instance
