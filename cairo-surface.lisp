@@ -34,16 +34,13 @@ called more often than CAIRO-SURFACE->GL-TEXTURE"))
   (with-slots (surface context gl-texture-up-to-date) instance
     (let ((cl-cairo2:*surface* surface)
           (cl-cairo2:*context* context))
+      (cl-cairo2:reset-trans-matrix)
       (if custom-draw-func
           (funcall custom-draw-func)
           (funcall (draw-func instance))))
     (setf gl-texture-up-to-date nil)))
 
-(defgeneric cairo-surface->gl-texture (instance)
-  (:documentation "Uploads the new data to GPU if cairo surface was
-updated after the previous call. Returns CEPL texture object."))
-
-(defmethod cairo-surface->gl-texture ((instance cairo-surface))
+(defmethod texture-of ((instance cairo-surface))
   (unless (allow-gl instance)
     (error "This cairo surface isn't set up to upload pixels to GPU.~%Must create it with :allow-gl t"))
   (with-slots (surface gl-texture gl-texture-up-to-date width height) instance
@@ -57,5 +54,5 @@ updated after the previous call. Returns CEPL texture object."))
             (cepl:push-g cepl-data gl-texture)
             (setf gl-texture (cepl:make-texture cepl-data)))
         (setf gl-texture-up-to-date t)))
-    gl-texture))
+    (cepl:sample gl-texture)))
 

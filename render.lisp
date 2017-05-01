@@ -158,8 +158,10 @@
 ;; Each screen to have its own framebuffer?
 ;; Let's 
 
+(defgeneric texture-of (surface)
+  (:documentation "Given a surface will return a texture sampler of either the underlying texture or a FBO which has been used to apply effects to the surface"))
+
 (defmethod texture-of ((surface isurface))
-  "Given a surface will return a texture sampler of either the underlying texture or a FBO which has been used to apply effects to the surface"
   ;;(describe surface)
   (with-slots (effects wl-surface) surface
     ;;(format t "Effects ~A~%" effects)
@@ -297,14 +299,15 @@
   (unless *default-cursor*
     (setf *default-cursor* (make-instance 'cairo-surface
                                           :allow-gl t
-                                          :width 32
-                                          :height 32))
+                                          :width 64
+                                          :height 64))
     (setf (draw-func *default-cursor*)
           (lambda ()
+            (cl-cairo2:translate 32 32)
             (cl-cairo2:set-source-rgba 1 1 1 0)
             (cl-cairo2:paint)
-            (cl-cairo2:move-to 1 1)
-            (cl-cairo2:line-to 1 16)
+            (cl-cairo2:move-to 0 0)
+            (cl-cairo2:line-to 0 15)
             (cl-cairo2:line-to 4 13)
             (cl-cairo2:line-to 6 20)
             (cl-cairo2:line-to 8 19)
@@ -322,17 +325,17 @@
     (init-cursor)
     (cairo-surface-redraw *default-cursor*))
   (let* ((array (cepl:make-gpu-array
-		 `((,(cepl:v! x y 0)               ,(cepl:v! 0 0))
-                   (,(cepl:v! x (+ y 32) 0)        ,(cepl:v! 0 1))
-                   (,(cepl:v! (+ x 32) y 0)        ,(cepl:v! 1 0))
+		 `((,(cepl:v! (- x 32) (- y 32) 0) ,(cepl:v! 0 0))
+                   (,(cepl:v! (- x 32) (+ y 32) 0) ,(cepl:v! 0 1))
+                   (,(cepl:v! (+ x 32) (- y 32) 0) ,(cepl:v! 1 0))
                    (,(cepl:v! (+ x 32) (+ y 32) 0) ,(cepl:v! 1 1))
-                   (,(cepl:v! (+ x 32) y 0)        ,(cepl:v! 1 0))
-                   (,(cepl:v! x (+ y 32) 0)        ,(cepl:v! 0 1)))
+                   (,(cepl:v! (+ x 32) (- y 32) 0) ,(cepl:v! 1 0))
+                   (,(cepl:v! (- x 32) (+ y 32) 0) ,(cepl:v! 0 1)))
 		 :element-type 'cepl:g-pt))
 	 (vertex-stream (cepl:make-buffer-stream array)))
     (map-g-default/fbo fbo #'cursor-pipeline vertex-stream
                        :ortho ortho
-                       :texture (cepl:sample (cairo-surface->gl-texture *default-cursor*)))
+                       :texture (texture-of *default-cursor*))
     (cepl:free vertex-stream)
     (cepl:free array)
     (setf (render-needed *compositor*) t)))
