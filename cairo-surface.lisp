@@ -52,7 +52,14 @@ called more often than CAIRO-SURFACE->GL-TEXTURE"))
                                                         cairo-data)))
         (if gl-texture
             (cepl:push-g cepl-data gl-texture)
-            (setf gl-texture (cepl:make-texture cepl-data)))
+            (setf gl-texture (cepl:make-texture cepl-data
+                                                :pixel-format (cepl.types::make-pixel-format
+                                                               :components :bgra
+                                                               :type :uint8
+                                                               :normalize t
+                                                               :sizes nil
+                                                               :reversed t
+                                                               :comp-length 4))))
         (setf gl-texture-up-to-date t)))
     (cepl:sample gl-texture)))
 
