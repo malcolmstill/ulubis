@@ -13,12 +13,14 @@
                #:cl-wayland
 	       #:trivial-dump-core
 	       #:trivial-backtrace
+               #:cl-cairo2
 	       #:uiop)
   :serial t
   :components ((:file "backend")
 	       (:file "syscall")
 	       (:file "animation")
 	       (:file "package")
+               (:file "cairo-surface")
 	       (:file "ianimatable")
 	       ;; (:file "isurface")
 	       (:file "client")

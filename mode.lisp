@@ -65,11 +65,16 @@
 	     (setf (key-bindings instance) (delete new-kb (key-bindings instance) :test test))
 	     (push new-kb (key-bindings instance)))))))
 
-(defmacro defkeybinding ((op rawkey &rest mods) (mode-ref) modes &body body)
+(defmacro defkeybinding ((op rawkey &rest mods) (&optional mode-ref) modes &body body)
   `(register-keybinding ,op ,rawkey (list ,@mods) ',modes
-			(lambda (,mode-ref)
-			  (declare (ignorable ,mode-ref))
-			  ,@body)))
+                        ,(if mode-ref
+                             `(lambda (,mode-ref)
+                                ,@body)
+                             ;; Keyboard handler will pass the mode anyway
+                             (let ((dummy-var (gensym "DUMMY")))
+                               `(lambda (,dummy-var)
+                                  (declare (ignore ,dummy-var))
+                                  ,@body)))))
 
 (defun cancel-mods (surface)
   (when (and surface (keyboard (client surface)))

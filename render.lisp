@@ -158,8 +158,10 @@
 ;; Each screen to have its own framebuffer?
 ;; Let's 
 
+(defgeneric texture-of (surface)
+  (:documentation "Given a surface will return a texture sampler of either the underlying texture or a FBO which has been used to apply effects to the surface"))
+
 (defmethod texture-of ((surface isurface))
-  "Given a surface will return a texture sampler of either the underlying texture or a FBO which has been used to apply effects to the surface"
   ;;(describe surface)
   (with-slots (effects wl-surface) surface
     ;;(format t "Effects ~A~%" effects)
@@ -284,25 +286,69 @@
 			   :texture texture
 			   :alpha (opacity surface))))))
 
-(cepl:defun-g cursor-vertex-shader ((vert :vec3) &uniform (ortho :mat4))
-  (values (* ortho (cepl:v! vert 1))
-	  (cepl:v! 1 1 1 1)))
-
-(cepl:defun-g cursor-fragment-shader ((color :vec4))
-  color)
+(cepl:defun-g cursor-vertex-shader ((vert cepl:g-pt) &uniform (ortho :mat4))
+  (values (* ortho (cepl:v! (cepl:pos vert) 1))
+	  (cepl:tex vert)))
 
 (cepl:def-g-> cursor-pipeline ()
-  (cursor-vertex-shader :vec3) (cursor-fragment-shader :vec4))
-    
+  (cursor-vertex-shader cepl:g-pt) (passthrough-frag :vec2))
+
+(defparameter *default-cursor* nil)
+
+(defun init-vector-cursor ()
+  (unless *default-cursor*
+    (setf *default-cursor* (make-instance 'cairo-surface
+                                          :allow-gl t
+                                          :width 64
+                                          :height 64))
+    (setf (draw-func *default-cursor*)
+          (lambda ()
+            (cl-cairo2:translate 32 32)
+            (cl-cairo2:set-source-rgba 1 1 1 0)
+            (cl-cairo2:paint)
+            (cl-cairo2:move-to 0 0)
+            (cl-cairo2:line-to 0 15)
+            (cl-cairo2:line-to 4 13)
+            (cl-cairo2:line-to 6 20)
+            (cl-cairo2:line-to 8 19)
+            (cl-cairo2:line-to 6 12)
+            (cl-cairo2:line-to 9 12)
+            (cl-cairo2:close-path)
+            (cl-cairo2:set-source-rgba 0 0 0 1)
+            (cl-cairo2:stroke-preserve)
+            (cl-cairo2:set-source-rgba 1 1 1 1)
+            (cl-cairo2:fill-path)
+            ))))
+
+(defun init-image-cursor ()
+  (unless *default-cursor*
+    (setf *default-cursor* (make-instance 'cairo-surface
+                                          :allow-gl t
+                                          :filename "assets/cursor.png"))))
+
+(defun make-g-pt-quad (top bottom left right)
+  `((,(cepl:v! left top 0)     ,(cepl:v! 0 0))
+    (,(cepl:v! left bottom 0)  ,(cepl:v! 0 1))
+    (,(cepl:v! right top 0)    ,(cepl:v! 1 0))
+    (,(cepl:v! right bottom 0) ,(cepl:v! 1 1))
+    (,(cepl:v! right top 0)    ,(cepl:v! 1 0))
+    (,(cepl:v! left bottom 0)  ,(cepl:v! 0 1))))
+
 (defmethod draw-cursor ((cursor (eql nil)) fbo x y ortho)
-  (let* ((array (cepl:make-gpu-array
-		 (list (cepl:v! x y 0)
-		       (cepl:v! x (+ y 32) 0)
-		       (cepl:v! (+ x 16) (+ y 24) 0))
-		 :dimensions 3 :element-type :vec3))
+  (unless *default-cursor*
+    (init-image-cursor)
+    (cairo-surface-redraw *default-cursor*))
+  (let* ((halfw (/ (width *default-cursor*) 2))
+         (halfh (/ (height *default-cursor*) 2))
+         (array (cepl:make-gpu-array (make-g-pt-quad (- y halfh)
+                                                     (+ y halfh)
+                                                     (- x halfw)
+                                                     (+ x halfw))
+                                     :element-type 'cepl:g-pt))
 	 (vertex-stream (cepl:make-buffer-stream array)))
     (map-g-default/fbo fbo #'cursor-pipeline vertex-stream
-	   :ortho ortho)
+                       :ortho ortho
+                       :texture (texture-of *default-cursor*))
     (cepl:free vertex-stream)
     (cepl:free array)
     (setf (render-needed *compositor*) t)))
