@@ -51,23 +51,23 @@
     (start-animation (exit-animation mode))))
 
 (defun rot-y (angle)
-  (m4:rotation-from-axis-angle (cepl:v! 0 1 0) angle))
+  (m4:rotation-from-axis-angle (rtg-math:v! 0 1 0) angle))
 
 (defun rot-x (angle)
-  (m4:rotation-from-axis-angle (cepl:v! 1 0 0) angle))
+  (m4:rotation-from-axis-angle (rtg-math:v! 1 0 0) angle))
 
 (cepl:defun-g alt-tab-vertex-shader ((vert cepl:g-pt) &uniform (surface-scale :mat4) (surface-translate :mat4) (ortho :mat4) (rot-y :mat4) (rot-x :mat4))
-  (values (* rot-x (* rot-y (* ortho (* surface-translate (* surface-scale (cepl:v! (cepl:pos vert) 1))))))
+  (values (* rot-x (* rot-y (* ortho (* surface-translate (* surface-scale (rtg-math:v! (cepl:pos vert) 1))))))
 	  (:smooth (cepl:tex vert))))
 
 (cepl:defun-g alt-tab-frag ((tex-coord :vec2) &uniform (texture :sampler-2d) (alpha :float))
-  (cepl:v!
-   (cepl:s~ (cepl:texture texture tex-coord) :z)
-   (cepl:s~ (cepl:texture texture tex-coord) :y)
-   (cepl:s~ (cepl:texture texture tex-coord) :x)
-   (* alpha (cepl:s~ (cepl:texture texture tex-coord) :w))))
+  (rtg-math:v!
+   (rtg-math:s~ (cepl:texture texture tex-coord) :z)
+   (rtg-math:s~ (cepl:texture texture tex-coord) :y)
+   (rtg-math:s~ (cepl:texture texture tex-coord) :x)
+   (* alpha (rtg-math:s~ (cepl:texture texture tex-coord) :w))))
 
-(cepl:def-g-> alt-tab-pipeline ()
+(cepl:defpipeline-g alt-tab-pipeline ()
   (alt-tab-vertex-shader cepl:g-pt) (alt-tab-frag :vec2))
 
 (defmethod render ((mode alt-tab-mode) &optional view-fbo)
@@ -86,8 +86,8 @@
 		  ;;	      (with-surface (vs tex mode surface :z (+ (* (- o) spacing) 100))
 		  (let ((tex (texture-of surface)))
 		    (map-g-default/fbo view-fbo #'alt-tab-pipeline vs
-				       :surface-scale (m4:scale (cepl:v! (scale-x surface) (scale-y surface) 1.0))
-				       :surface-translate (m4:translation (cepl:v! (x surface) (y surface) (+ (* (- o) spacing) 100)))
+				       :surface-scale (m4:scale (rtg-math:v! (scale-x surface) (scale-y surface) 1.0))
+				       :surface-translate (m4:translation (rtg-math:v! (x surface) (y surface) (+ (* (- o) spacing) 100)))
 				       :ortho (projection mode)
 				       :rot-y (rot-y (y-angle mode))
 				       :rot-x (rot-x (x-angle mode))

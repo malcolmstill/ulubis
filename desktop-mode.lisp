@@ -219,10 +219,10 @@
     (start-animation animation)))
 
 (cepl:defun-g desktop-mode-vertex-shader ((vert cepl:g-pt) &uniform (origin :mat4) (origin-inverse :mat4) (surface-scale :mat4) (surface-translate :mat4))
-  (values (* *ortho* surface-translate origin-inverse surface-scale origin (cepl:v! (cepl:pos vert) 1))
+  (values (* *ortho* surface-translate origin-inverse surface-scale origin (rtg-math:v! (cepl:pos vert) 1))
 	  (:smooth (cepl:tex vert))))
 
-(cepl:def-g-> mapping-pipeline ()
+(cepl:defpipeline-g mapping-pipeline ()
   (desktop-mode-vertex-shader cepl:g-pt) (default-fragment-shader :vec2))
 
 (defmethod render ((surface isurface) &optional view-fbo)
@@ -231,10 +231,10 @@
       (let ((texture (texture-of surface)))
 	(gl:viewport 0 0 (screen-width *compositor*) (screen-height *compositor*))
 	(map-g-default/fbo view-fbo #'mapping-pipeline vertex-stream
-			   :origin (m4:translation (cepl:v! (- (origin-x surface)) (- (origin-y surface)) 0))
-			   :origin-inverse (m4:translation (cepl:v! (origin-x surface) (origin-y surface) 0))
-			   :surface-scale (m4:scale (cepl:v! (scale-x surface) (scale-y surface) 1.0))
-			   :surface-translate (m4:translation (cepl:v! (x surface) (y surface) 0.0))
+			   :origin (m4:translation (rtg-math:v! (- (origin-x surface)) (- (origin-y surface)) 0))
+			   :origin-inverse (m4:translation (rtg-math:v! (origin-x surface) (origin-y surface) 0))
+			   :surface-scale (m4:scale (rtg-math:v! (scale-x surface) (scale-y surface) 1.0))
+			   :surface-translate (m4:translation (rtg-math:v! (x surface) (y surface) 0.0))
 			   :texture texture
 			   :alpha (opacity surface))))
     (loop :for subsurface :in (reverse (subsurfaces (wl-surface surface)))
@@ -246,16 +246,16 @@
       (let ((texture (texture-of surface)))
 	(gl:viewport 0 0 (screen-width *compositor*) (screen-height *compositor*))
 	(map-g-default/fbo view-fbo #'mapping-pipeline vertex-stream
-			   :origin (m4:translation (cepl:v! (+ (x surface) (- (origin-x (role (parent surface)))))
+			   :origin (m4:translation (rtg-math:v! (+ (x surface) (- (origin-x (role (parent surface)))))
 							    (+ (y surface) (- (origin-y (role (parent surface)))))
 							    0))
-			   :origin-inverse (m4:translation (cepl:v! (+ (- (x surface)) (origin-x (role (parent surface))))
+			   :origin-inverse (m4:translation (rtg-math:v! (+ (- (x surface)) (origin-x (role (parent surface))))
 								    (+ (- (y surface)) (origin-y (role (parent surface))))
 								    0))
-			   :surface-scale (m4:scale (cepl:v! (scale-x (role (parent surface)))
+			   :surface-scale (m4:scale (rtg-math:v! (scale-x (role (parent surface)))
 							     (scale-y (role (parent surface)))
 							     1.0))
-			   :surface-translate (m4:translation (cepl:v! (+ (x (role (parent surface))) (x surface))
+			   :surface-translate (m4:translation (rtg-math:v! (+ (x (role (parent surface))) (x surface))
 								       (+ (y (role (parent surface))) (y surface))
 								       0.0))
 			   :texture texture
