@@ -51,6 +51,9 @@ called more often than TEXTURE-OF"))
 (defmethod texture-of ((instance cairo-surface))
   (unless (allow-gl instance)
     (error "This cairo surface isn't set up to upload pixels to GPU.~%Must create it with :allow-gl t"))
+  (assert (and (>= (width instance) 0) (>= (height instance) 0)) (instance)
+          "Could not make texture-of cairo-surface as one of the dimensions was <= 0~%width: ~a~%height: ~a"
+          (width instance) (height instance))
   (with-slots (surface gl-texture gl-texture-up-to-date) instance
     (unless gl-texture-up-to-date
       (cl-cairo2:surface-flush surface)

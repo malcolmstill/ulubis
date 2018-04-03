@@ -8,6 +8,8 @@
 	       #:osicat
 	       #:swank
 	       #:cepl
+               #:rtg-math
+               #:rtg-math.vari
 	       #:easing
 	       #:cl-xkb
                #:cl-wayland
