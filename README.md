@@ -11,14 +11,25 @@ Ulubis is a Wayland compositor written in Common Lisp. It is inspired by FVWM an
 ## Installation of ulubis
 
 - Ensure you have SBCL or CCL and Quicklisp installed.
-- Download the [latest release](https://github.com/malcolmstill/ulubis/releases)
-- Unzip the archive
-- `cd ulubis-release-vX.X`
-- `sh build-ulubis.sh` (or `sh build-ulubis-sdl.sh`) to build with SBCL as default
-or
-- `sh build-ulubis.sh ccl` (or `sh build-ulubis-sdl.sh ccl`) to build with CCL for example
+- Build `ulubis` / `ulubis-sdl`
+```
+git clone https://github.com/malcolmstill/ulubis.git
+cd ulubis
+sbcl
+```
 
-This will generate the `ulubis` (or `ulubis-sdl` if `ulubis-build-sdl.sh` is used) executable in the `build/` directory.
+In SBCL run to generate the `ulubis` executable
+```
+* (load "build-ulubis.lisp")
+```
+
+Or for `ulubis-sdl`
+```
+* (load "build-ulubis-sdl.lisp")
+```
+
+If quicklisp complains about not finding the dependencies it's because I don't have it in the official distribution. To
+get around that add clone the dependency (e.g. `cl-drm`) to the `local-projects` dir of quicklisp.
 
 ## Running ulubis
 
@@ -59,6 +70,10 @@ An example configuration is as follows:
   (setf (current-view *compositor*) (first (views *compositor*))))
 
 ```
+
+## Hacking on ulubis
+
+Download `ulubis` and its dependencies to quicklisp's `local-projects/` dir and hack away, rebuilding the executables as per installation.
 
 ## Status
 
