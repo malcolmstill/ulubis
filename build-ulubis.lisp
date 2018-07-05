@@ -5,6 +5,7 @@
 (ql:quickload :osicat)
 (ql:quickload :trivial-dump-core)
 (ql:quickload :uiop)
+(ql:quickload :zpng)
 
 (ql:quickload "cl-drm")
 (ql:quickload "cl-gbm")

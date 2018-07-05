@@ -16,7 +16,8 @@
 	       #:trivial-dump-core
 	       #:trivial-backtrace
                #:cl-cairo2
-	       #:uiop)
+	       #:uiop
+	       #:zpng)
   :serial t
   :components ((:file "backend")
 	       (:file "syscall")
@@ -47,6 +48,7 @@
 	       (:file "zxdg-shell-v6-impl")
 	       (:file "xdg-surface-impl")
 	       (:file "xdg-shell-impl")
+	       (:file "screenshot")
 	       (:file "render")
 	       (:file "mode")
 	       (:file "view")

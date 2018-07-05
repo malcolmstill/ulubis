@@ -6,7 +6,7 @@
 (ql:quickload :trivial-dump-core)
 (ql:quickload :uiop)
 (ql:quickload :sdl2)
-
+(ql:quickload :zpng)
 
 (ql:quickload "cepl.sdl2")
 (ql:quickload "cl-wayland")
