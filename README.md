@@ -90,11 +90,12 @@ Ulubis is known to work with sbcl and ccl. I have only tested it on two machines
 ## Roadmap
 
 The vague roadmap for ulubis is as follows (not necessarily in order):
+- [x] Add screenshotting
 - [ ] Wallpapers
 - [ ] Add (an at least rudimentary) menu system
 - [ ] Server-side decorations
 - [ ] Add screen locking
-- [ ] Add screenshooting and video capture
+- [ ] Add video capture
 - [ ] Support multiple monitors
 - [ ] Support more (most?) Wayland clients
 - [ ] XWayland support
