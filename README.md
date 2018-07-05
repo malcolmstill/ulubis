@@ -15,17 +15,13 @@ Ulubis is a Wayland compositor written in Common Lisp. It is inspired by FVWM an
 ```
 git clone https://github.com/malcolmstill/ulubis.git
 cd ulubis
-sbcl
+sbcl --eval '(load "build-ulubis.lisp")'
 ```
 
-In SBCL run to generate the `ulubis` executable
-```
-* (load "build-ulubis.lisp")
-```
+or
 
-Or for `ulubis-sdl`
 ```
-* (load "build-ulubis-sdl.lisp")
+sbcl --eval '(load "build-ulubis-sdl.lisp")'
 ```
 
 If quicklisp complains about not finding the dependencies it's because I don't have it in the official distribution. To

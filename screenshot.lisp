@@ -18,7 +18,7 @@
 	(loop :for y :from 0 :to (- height 1) :do
 	     (loop :for x :from 0 :to (- width 1) :do
 		  (let ((i (* x bytes))
-			(j (- (* (- height y) width bytes) (* width bytes))))
+			(j (* (- height y 1) width bytes)))
 		    (zpng:write-pixel
 		     (list (aref pixels (+ i j 0))
 			   (aref pixels (+ i j 1))
