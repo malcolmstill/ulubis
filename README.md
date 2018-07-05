@@ -75,6 +75,14 @@ An example configuration is as follows:
 
 Download `ulubis` and its dependencies to quicklisp's `local-projects/` dir and hack away, rebuilding the executables as per installation.
 
+## Contributors
+
+All glory to our lovely contributors, please join us:
+
+- [naryl](https://github.com/naryl) very kindly added a nicer cursor using cairo
+- [cbaggers](https://github.com/cbaggers) very kindly updated various bits and pieces to use the latest CEPL tech
+
+
 ## Status
 
 Ulubis is known to work with sbcl and ccl. I have only tested it on two machines which Intel graphics chips, please get in touch if it does / doesn't work with Nvidia or AMD cards. It is very alpha.
