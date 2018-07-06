@@ -272,5 +272,6 @@
     (cepl:clear view-fbo))
   (cepl:with-blending (blending-parameters mode)
     (mapcar (lambda (surface)
-	      (render surface view-fbo))
+	      (cepl:with-blending (blending-parameters mode)
+		(render surface view-fbo)))
 	    (reverse (surfaces (view mode))))))
