@@ -20,9 +20,9 @@
 		  (let ((i (* x bytes))
 			(j (* (- height y 1) width bytes)))
 		    (zpng:write-pixel
-		     (list (aref pixels (+ i j 0))
+		     (list (aref pixels (+ i j 2))
 			   (aref pixels (+ i j 1))
-			   (aref pixels (+ i j 2))
+			   (aref pixels (+ i j 0))
 			   255)
 		     png))))
 	(zpng:finish-png png)))))
