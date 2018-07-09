@@ -40,7 +40,6 @@
       (setf (render-needed *compositor*) t))))
 
 (defkeybinding (:released nil Gui) (mode) (alt-tab-mode)
-  (format t "Released alt-tab ~%")
   (with-slots (surfaces selection iso-animation) mode
     (setf (render-needed *compositor*) t)
     (when iso-animation
@@ -73,21 +72,17 @@
 (defmethod render ((mode alt-tab-mode) &optional view-fbo)
   (let* ((drawable-surfaces (surfaces mode))
 	 (surface-count (length drawable-surfaces))
-	 (order (reverse (loop :for i :from 0 :to (- surface-count 1) :collecting i)))
-	 (spacing (if (> surface-count 0)
-		      (/ (screen-height *compositor*) surface-count)
-		      0)))
+	 (order (reverse (loop :for i :from 0 :to (- surface-count 1) :collecting i))))
     (apply #'gl:clear-color (clear-color mode))
     (cepl:clear)
 
     (mapcar (lambda (surface o)
 	      (cepl:with-blending (blending-parameters mode)
 		(with-rect (vs (width (wl-surface surface)) (height (wl-surface surface)))
-		  ;;	      (with-surface (vs tex mode surface :z (+ (* (- o) spacing) 100))
 		  (let ((tex (texture-of surface)))
 		    (map-g-default/fbo view-fbo #'alt-tab-pipeline vs
 				       :surface-scale (m4:scale (rtg-math:v! (scale-x surface) (scale-y surface) 1.0))
-				       :surface-translate (m4:translation (rtg-math:v! (x surface) (y surface) (+ (* (- o) spacing) 100)))
+				       :surface-translate (m4:translation (rtg-math:v! (x surface) (y surface) 0.0))
 				       :ortho (projection mode)
 				       :rot-y (rot-y (y-angle mode))
 				       :rot-x (rot-x (x-angle mode))

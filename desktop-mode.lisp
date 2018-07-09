@@ -5,7 +5,9 @@
 (defparameter *ortho* (m4:identity))
 
 (defmode desktop-mode ()
-  ((clear-color :accessor clear-color :initarg :clear-color :initform (list 0.3 0.3 0.3 0.0))
+  ((clear-color :accessor clear-color :initarg :clear-color :initform (list (random 1.0)
+									    (random 1.0)
+									    (random 1.0) 0.0))
    (projection :accessor projection :initarg :projection :initform (m4:identity))
    (focus-follows-mouse :accessor focus-follows-mouse :initarg :focus-follows-mouse :initform nil)))
 
@@ -33,7 +35,6 @@
 
 (defun pointer-changed-surface (mode x y old-surface new-surface)
   (setf (cursor-surface *compositor*) nil)
-  ;; (format t "Pointer changed service~%")
   (when (focus-follows-mouse mode)
     (deactivate old-surface)) 
   (when (and old-surface (pointer (client old-surface)))
@@ -70,7 +71,6 @@
     (when (> pointer-y screen-height) (setf pointer-y screen-height))))
 
 (defmethod mouse-motion-handler ((mode desktop-mode) time delta-x delta-y)
-  ;; Update the pointer location
   (with-slots (pointer-x pointer-y) *compositor*
     (update-pointer delta-x delta-y)
     (when (cursor-surface *compositor*)
@@ -135,17 +135,18 @@
   ;; Resize window
   (when (and (= button #x110) (= state 1) (= (+ Gui Shift) (mods-depressed *compositor*)))
     (let ((surface (surface-under-pointer (pointer-x *compositor*) (pointer-y *compositor*) (view mode))))
-      (let ((width (if (input-region (wl-surface surface))
-		       (width (first (last (rects (input-region (wl-surface surface))))))
-		       (width (wl-surface surface))))
-	    (height (if (input-region (wl-surface surface))
-			(height (first (last (rects (input-region (wl-surface surface))))))
-			(height (wl-surface surface)))))
-	(setf (resizing-surface *compositor*) (make-resize-op :surface surface
-							      :pointer-x (pointer-x *compositor*)
-							      :pointer-y (pointer-y *compositor*)
-							      :surface-width width
-							      :surface-height height)))))
+      (when surface
+	(let ((width (if (input-region (wl-surface surface))
+			 (width (first (last (rects (input-region (wl-surface surface))))))
+			 (width (wl-surface surface))))
+	      (height (if (input-region (wl-surface surface))
+			  (height (first (last (rects (input-region (wl-surface surface))))))
+			  (height (wl-surface surface)))))
+	  (setf (resizing-surface *compositor*) (make-resize-op :surface surface
+								:pointer-x (pointer-x *compositor*)
+								:pointer-y (pointer-y *compositor*)
+								:surface-width width
+								:surface-height height))))))
 
   (when (and (resizing-surface *compositor*) (= button #x110) (= state 0))
     (setf (resizing-surface *compositor*) nil))
@@ -173,31 +174,8 @@
 (defkeybinding (:pressed "T" Ctrl Shift) () (desktop-mode)
   (run-program "/usr/bin/weston-terminal"))
 
-#|
-(defmousebinding (:pressed 1) (mode) (desktop-mode)
-		 (show-menu 'root-menu))
-|#
-
 (defkeybinding (:pressed "Tab" Gui) (mode) (desktop-mode)
   (push-mode (view mode) (make-instance 'alt-tab-mode)))
-
-(defkeybinding (:pressed "Right" Gui) (mode) (desktop-mode)
-  (with-slots (view) mode
-    (let* ((views (views *compositor*))
-	   (count (length views))
-	   (pos (position view views)))
-      (when (not (= pos (- count 1)))
-	(setf (current-view *compositor*) (nth (+ pos 1) views)))))
-  (setf (render-needed *compositor*) t))
-
-(defkeybinding (:pressed "Left" Gui) (mode) (desktop-mode)
-  (with-slots (view) mode
-    (let* ((views (views *compositor*))
-	   (count (length views))
-	   (pos (position view views)))
-      (when (not (= pos 0))
-	(setf (current-view *compositor*) (nth (- pos 1) views)))))
-  (setf (render-needed *compositor*) t))
 
 (defmethod first-commit ((mode desktop-mode) (surface isurface))
   (let ((animation (sequential-animation
@@ -250,17 +228,17 @@
 	(gl:viewport 0 0 (screen-width *compositor*) (screen-height *compositor*))
 	(map-g-default/fbo view-fbo #'mapping-pipeline vertex-stream
 			   :origin (m4:translation (rtg-math:v! (+ (x surface) (- (origin-x (role (parent surface)))))
-							    (+ (y surface) (- (origin-y (role (parent surface)))))
-							    0))
+								(+ (y surface) (- (origin-y (role (parent surface)))))
+								0))
 			   :origin-inverse (m4:translation (rtg-math:v! (+ (- (x surface)) (origin-x (role (parent surface))))
-								    (+ (- (y surface)) (origin-y (role (parent surface))))
-								    0))
+									(+ (- (y surface)) (origin-y (role (parent surface))))
+									0))
 			   :surface-scale (m4:scale (rtg-math:v! (scale-x (role (parent surface)))
-							     (scale-y (role (parent surface)))
-							     1.0))
+								 (scale-y (role (parent surface)))
+								 1.0))
 			   :surface-translate (m4:translation (rtg-math:v! (+ (x (role (parent surface))) (x surface))
-								       (+ (y (role (parent surface))) (y surface))
-								       0.0))
+									   (+ (y (role (parent surface))) (y surface))
+									   0.0))
 			   :texture texture
 			   :alpha (opacity surface))))
     (loop :for subsurface :in (reverse (subsurfaces (wl-surface surface)))

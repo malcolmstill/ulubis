@@ -19,8 +19,7 @@
    (event-loop :accessor event-loop :initarg :event-loop :initform nil)
    (screen-width :accessor screen-width :initarg :screen-width :initform 640)
    (screen-height :accessor screen-height :initarg :screen-height :initform 480)
-   (views :accessor views :initarg :views :initform nil) ;; e.g. virtual desktops
-   (current-view :accessor current-view :initarg current-view :initform nil)
+   (screen :accessor screen :initarg :screen :initform (make-instance 'view))
    (surfaces :accessor surfaces :initarg :surfaces :initform nil)
    (clients :accessor clients :initarg :clients :initform nil)
    (moving-surface :accessor moving-surface :initarg :moving-surface :initform nil)
@@ -197,3 +196,17 @@
 	((and (<= pointer-x (+ x half-width)) (>= pointer-y (+ y half-height)))
 	 :bottom-left)))))
 |#      
+
+#|
+I was thinking we'd have the equivalent of push-view but at the screen level.
+That would be push-screen though and we're just going to assume for the moment
+that we have a single screen
+
+Let's define it anyway but all it will do is set the default-mode (screen mode)
+on the compositor
+|#
+
+(defun make-screen (default-mode)
+  (let ((default-mode (make-instance default-mode)))
+    (setf (screen *compositor*) (make-instance 'view :default-mode default-mode))
+    (setf (view default-mode) (screen *compositor*))))

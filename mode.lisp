@@ -6,7 +6,9 @@
 (in-package :ulubis)
 
 (defclass mode ()
-  ((blending-parameters :accessor blending-parameters :initarg :blending-parameters :initform nil)))
+  ((blending-parameters :accessor blending-parameters
+			:initarg :blending-parameters
+			:initform nil)))
 
 ;; We introduce defmode. Ideally we would just subclass mode,
 ;; but we'd like to a class allocated slot KEY-BINDINGS. We
@@ -16,19 +18,23 @@
 (defmacro defmode (name (&rest superclasses) (&body slots))
   "DEFMODE automatically inherits MODE and provides class-allocated slot KEY-BINDINGS"
   `(defclass ,name (,@superclasses mode)
-     ((key-bindings :accessor key-bindings :initarg :key-bindings :initform nil :allocation :class)
-      (view :accessor view :initarg :view :initform nil)
+     ((key-bindings :accessor key-bindings
+		    :initarg :key-bindings
+		    :initform nil
+		    :allocation :class)
+      (view :accessor view
+	    :initarg :view
+	    :initform nil)
       ,@slots)))
 
 (defgeneric init-mode (mode))
-(defgeneric mouse-motion-handler (mode time delta-x delta-y))
-(defgeneric mouse-button-handler (mode time button state))
-(defgeneric keyboard-handler (mode time keycode keysym state))
 (defgeneric render (mode &optional view-fbo))
 (defgeneric first-commit (mode surface))
 
 (defmethod init-mode :before ((mode mode))
   (setf (blending-parameters mode) (cepl:make-blending-params)))
+
+;; (defgeneric current-mode (desktop-or-view))
 
 (defclass key-binding ()
   ((op :accessor op :initarg :op :initform :pressed)
@@ -76,43 +82,34 @@
                                   (declare (ignore ,dummy-var))
                                   ,@body)))))
 
-(defun cancel-mods (surface)
-  (when (and surface (keyboard (client surface)))
-    (wl-keyboard-send-modifiers (->resource (keyboard (client surface))) 0
-				0
-				0
-				0
-				0)))
+(defmethod keyboard-handler ((mode mode) time keycode keysym state)
+  (let ((surface (active-surface (view mode))))
+    (let ((keysym (xkb:tolower keysym)))
+      (loop :for key-binding :in (key-bindings mode) :do
+	   (with-slots (op key mods fn) key-binding
+	     (when (and (eq op :pressed)
+			(or (not keysym) (= keysym key))
+			(= 1 state)
+			(or (zerop mods) (= (mods-depressed *compositor*) mods)))
+	       (cancel-mods surface)
+	       (funcall fn mode)
+	       (return-from keyboard-handler))
+	     (when (and (eq op :released)
+			(= 0 state)
+			(or (not key) (and keysym (= keysym key) (= state 0)))
+			(zerop (logand (mods-depressed *compositor*) mods)))
+	       (cancel-mods surface)
+	       (funcall fn mode)
+	       (return-from keyboard-handler))))
+      ;; No key combo found, pass the keys down to the active surface
+      ;; of parent (screen or view)
+      (keyboard-handler surface time keycode keysym state))))
 
-(defmethod keyboard-handler (mode time keycode keysym state)
-  (let ((surface (active-surface (view mode)))
-	(keysym (xkb:tolower keysym)))
-    (loop :for key-binding :in (key-bindings mode) :do
-       (with-slots (op key mods fn) key-binding
-	 (when (and (eq op :pressed)
-		    (or (not keysym) (= keysym key))
-		    (= 1 state)
-		    (or (zerop mods) (= (mods-depressed *compositor*) mods)))
-	   (format t "Calling pressed~%")
-	   (cancel-mods surface)
-	   (funcall fn mode)
-	   (return-from keyboard-handler))
-	 (when (and (eq op :released)
-		    (= 0 state)
-		    (or (not key) (and keysym (= keysym key) (= state 0)))
-		    (zerop (logand (mods-depressed *compositor*) mods)))
-	   (format t "Calling released~%")
-	   (cancel-mods surface)
-	   (funcall fn mode)
-	   (return-from keyboard-handler))))
-    (when (and surface keycode (keyboard (client surface)))
-      (wl-keyboard-send-key (->resource (keyboard (client surface))) 0 time keycode state))
-    (when (and surface (keyboard (client surface)))
-      (wl-keyboard-send-modifiers (->resource (keyboard (client surface))) 0
-				  (mods-depressed *compositor*)
-				  (mods-latched *compositor*)
-				  (mods-locked *compositor*)
-				  (mods-group *compositor*)))))
+(defmethod mouse-motion-handler ((mode mode) time delta-x delta-y)
+  (mouse-motion-handler (active-surface (view mode)) time delta-x delta-y))
+
+(defmethod mouse-button-handler ((mode mode) time button state)
+  (mouse-button-handler (active-surface (view mode)) time button state))
 
 (defmethod first-commit ((mode mode) surface)
   )
