@@ -16,15 +16,31 @@
 
 (in-package :ulubis)
 
-(defclass view ()
-  ((modes :accessor modes :initarg :modes :initform nil)
-   (default-mode :accessor default-mode :initarg :default-mode :initform nil)
-   (surfaces :accessor surfaces :initarg :surfaces :initform nil)
-   (active-surface :accessor active-surface :initarg :active-surface :initform nil)
-   (effects :accessor effects :initarg :effects :initform nil)
-   (fbo :accessor fbo :initarg :fbo :initform nil)
-   (fbo-attachment :accessor fbo-attachment :initarg :fbo-attachment :initform nil)
-   (fbo-sample :accessor fbo-sample :initarg :fbo-sample :initform nil)))
+(defclass view (isurface)
+  ((modes :accessor modes
+	  :initarg :modes
+	  :initform nil)
+   (default-mode :accessor default-mode
+     :initarg :default-mode
+     :initform nil)
+   (surfaces :accessor surfaces
+	     :initarg :surfaces
+	     :initform nil)
+   (active-surface :accessor active-surface
+		   :initarg :active-surface
+		   :initform nil)
+   (effects :accessor effects
+	    :initarg :effects
+	    :initform nil)
+   (fbo :accessor fbo
+	:initarg :fbo
+	:initform nil)
+   (fbo-attachment :accessor fbo-attachment
+		   :initarg :fbo-attachment
+		   :initform nil)
+   (fbo-sample :accessor fbo-sample
+	       :initarg :fbo-sample
+	       :initform nil)))
 
 (defmethod init-view ((view view) &key)
   (let ((fbo (cepl:make-fbo (list 0 :dimensions (list (screen-width *compositor*) (screen-height *compositor*))))))
@@ -62,12 +78,16 @@
       (default-mode view)))
 |#
 
+#|
+Make an instance of a view with an instance of mode for the default mode
+and push onto the compositor's list of views
+|#
 (defun push-view (default-mode)
   (let ((view (make-instance 'view :default-mode (make-instance default-mode))))
     (setf (view (default-mode view)) view)
     (init-mode (default-mode view))
     (init-view view)
-    (push view (views *compositor*))))
+    (push view (surfaces (screen *compositor*)))))
 
 (defmethod texture-of ((view view))
   (let ((current-mode (current-mode view)))
@@ -77,4 +97,18 @@
 	(render current-mode fbo)
 	(cepl:map-g-into fbo #'passthrough-shader vertex-stream :texture fbo-sample)
 	fbo-sample))))
-    
+
+(defmethod keyboard-handler ((view view) time keycode keysym state)
+  (let ((mode (current-mode view)))
+    (keyboard-handler mode time keycode keysym state)))
+
+(defmethod cancel-mods ((view view))
+  nil)
+
+(defmethod mouse-motion-handler ((view view) time delta-x delta-y)
+  (let ((mode (current-mode view)))
+    (mouse-motion-handler mode time delta-x delta-y)))
+
+(defmethod mouse-button-handler ((view view) time button state)
+  (let ((mode (current-mode view)))
+    (mouse-button-handler mode time button state)))

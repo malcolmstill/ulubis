@@ -9,7 +9,8 @@
     (setf (role (wl-surface zxdg-surface)) toplevel)
     ;; Save the wl-surface associated with the toplevel
     (setf (wl-surface toplevel) (wl-surface zxdg-surface))
-    (push toplevel (surfaces (current-view *compositor*)))
+    ;; (current-view *compositor*) is now (active-surface (screen *compositor*))
+    (push toplevel (surfaces (active-surface (screen *compositor*))))
     (with-wl-array array
       (zxdg-toplevel-v6-send-configure (->resource toplevel) 0 0 array)
       (zxdg-surface-v6-send-configure (->resource zxdg-surface) 0))))

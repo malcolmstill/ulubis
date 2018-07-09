@@ -3,23 +3,55 @@
 
 (defparameter *compositor* nil)
 
+#|
+We currently just ask the current-view to render itself.
+This does not allow animation. Instead, if on the compositor
+level (when we support multiple monitors it will be on the level
+of the desktop...the compositor will have a list of desktops),
+we also have the concept of modes, we can ask the current mode
+to render itself. That mode will have the virtual desktops (views)
+as "surfaces" and can render them as it pleases.
+
+Instead of (texture-of (current-view *compositor*))
+we'll want (texture-of (current-mode *compositor*))
+
+At the moment only views have fbos.
+Scratch that, effects also have fbos. But let's ignore effects
+for the moment.
+
+In the way that we have fbos on view we will have fbos on desktops.
+Or are fbos on desktops just the default fbo that we have from our
+GL context? I think the latter...we don't need an explicit fbo.
+
+However, I think we want our views to also behave like surfaces.
+I.e. they have x,y position widht height (albeit that of the screen).
+
+We currently define isurface within waylisp. I can't remember exactly why
+it's defined in there rather than in ulubis itself. Maybe I should think about
+moving it back. If views are also isurfaces that should be within ulubis.
+|#
 (defun draw-screen ()
-  (let ((texture (texture-of (current-view *compositor*)))) ;; This will return a texture
-    (with-screen (vs)
-      (cepl:clear)
-      (cepl:map-g #'passthrough-shader vs :texture texture)
-      (gl:enable :blend)
-      (draw-cursor (cursor-surface *compositor*) nil (pointer-x *compositor*) (pointer-y *compositor*) (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1 -1))
-      (swap-buffers (backend *compositor*))
-      (setf (render-needed *compositor*) nil)
-      (loop :for callback :in (callbacks *compositor*) :do
+  (with-screen (vs)
+    (gl:clear-color 0.3 0.3 0.3 0.0)
+    (cepl:clear)
+    ;; We are just rendering into the default fbo
+    (render (current-mode (screen *compositor*)))
+    (gl:enable :blend)
+    (draw-cursor (cursor-surface *compositor*)
+		 nil
+		 (pointer-x *compositor*)
+		 (pointer-y *compositor*)
+		 (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1 -1))
+    (swap-buffers (backend *compositor*))
+    (setf (render-needed *compositor*) nil)
+    (loop :for callback :in (callbacks *compositor*) :do
 	 (when (find (client callback) waylisp::*clients*)
 	   ;; We can end up getting a frame request after the client has been deleted
 	   ;; if we try and send-done or destroy we will get a memory fault
 	   (wl-callback-send-done (->resource callback) (get-milliseconds))
 	   (wl-resource-destroy (->resource callback)))
 	 (remove-resource callback))
-      (setf (callbacks *compositor*) nil))))
+    (setf (callbacks *compositor*) nil)))
 
 (defcallback input-callback :void ((fd :int) (mask :int) (data :pointer))
   (process-events (backend *compositor*)))
@@ -68,35 +100,6 @@
 	(resize surface width height (get-milliseconds) :activate? t)
 	(resize surface width height (get-milliseconds) :activate? nil))))
 
-#|
-(defun deactivate-surface (surface)
-  (when surface
-    (waylisp:keyboard-send-leave surface)
-    (when (or (ulubis-xdg-surface? surface) (ulubis-zxdg-toplevel? surface))
-      (waylisp:deactivate surface (get-milliseconds)))))
-
-(defun activate-surface (surface view)
-  (with-slots (active-surface) view
-    (cond
-      ;; No surface to activate
-      ((not surface) (progn
-		       (deactivate-surface active-surface)
-		       (setf active-surface nil)))
-      ;; Activating a non-active surface
-      ((and surface (not (waylisp:wl-cursor? surface)) (not (equalp surface active-surface)))
-       (progn
-	 (deactivate-surface active-surface)
-	 (setf active-surface surface)
-	 (keyboard-send-enter surface)
-	 (keyboard-send-modifiers surface
-				  (mods-depressed *compositor*)
-				  (mods-latched *compositor*)
-				  (mods-locked *compositor*)
-				  (mods-group *compositor*))
-	 (when (or (ulubis-xdg-surface? surface) (ulubis-zxdg-toplevel? surface))
-	   (waylisp:activate surface (get-milliseconds))))))))
-|#
-
 (defun activate-surface (surface mode)
   (with-slots (view) mode
     (with-slots (active-surface) view
@@ -110,13 +113,11 @@
 (defun call-mouse-motion-handler (time x y)
   (when (show-cursor *compositor*)
     (setf (render-needed *compositor*) t))
-  ;;(mouse-motion-handler (current-mode) time x y))
-  (mouse-motion-handler (current-mode (current-view *compositor*)) time x y))
+  (mouse-motion-handler (screen *compositor*) time x y))
 
 ;; Should be able to have "active" window without raising (focus follows mouse)
 (defun call-mouse-button-handler (time button state)
-  ;;(mouse-button-handler (current-mode) time button state))
-  (mouse-button-handler (current-mode (current-view *compositor*)) time button state))
+  (mouse-button-handler (screen *compositor*) time button state))
 
 (defun window-event-handler ()
   (new-xkb-state *compositor*)
@@ -129,7 +130,6 @@
 
 (defun call-keyboard-handler (time keycode state)
   (let ((keysym (xkb:xkb-state-key-get-one-sym (xkb-state *compositor*) (+ keycode 8))))
-    (format t "Keycode: ~A, Keysym: ~A, state: ~A~%" keycode keysym state)
     (if (and (= state 1)
 	     (member keycode *depressed-keys*))
 	(progn
@@ -140,12 +140,11 @@
 	(push keycode *depressed-keys*)
 	(setf *depressed-keys* (delete keycode *depressed-keys*)))
     (setf (mods-depressed *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 1))
-    ;; (format t "Mods: ~A~%" (mods-depressed *compositor*))
     (setf (mods-latched *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 2))
     (setf (mods-locked *compositor*) (xkb:xkb-state-serialize-mods (xkb-state *compositor*) 4))
     (setf (mods-group *compositor*) (xkb:xkb-state-serialize-layout (xkb-state *compositor*) 64))
     (when (and (numberp keysym) (numberp state))
-      (keyboard-handler (current-mode (current-view *compositor*))
+      (keyboard-handler (screen *compositor*)
 			time
 			keycode
 			keysym
@@ -173,14 +172,16 @@
 			     (screen-width *compositor*)
 			     (screen-height *compositor*)
 			     (devices *compositor*))
-	 
+
 	 ;; ulubis will attempt to run the function STARTUP
 	 ;; This should be defined in the user's ~/.ulubis.lisp
 	 ;; And is intended to set up things like the number
 	 ;; of virtual desktops (views), etc.
 	 (handler-case (startup)
 	   (undefined-function ()
-	     (push-view 'desktop-mode)
+	     (progn
+	       (push-screen 'virtual-desktop-mode)
+	       (push-view 'desktop-mode))
 	     (setf (current-view *compositor*) (first (views *compositor*)))))
 	 
 	 (register-mouse-motion-handler (backend *compositor*) 'call-mouse-motion-handler)

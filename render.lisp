@@ -257,11 +257,20 @@
   (values (* ortho surface-translate surface-scale (rtg-math:v! (cepl:pos vert) 1))
 	  (:smooth (cepl:tex vert))))
 
+#|
+Wayland surfaces come in in BGR (I believe) so we swap to RGB here
+|#
 (cepl:defun-g default-fragment-shader ((tex-coord :vec2) &uniform (texture :sampler-2d) (alpha :float))
   (rtg-math:v! (rtg-math:s~ (cepl:texture texture tex-coord) :z)
 	   (rtg-math:s~ (cepl:texture texture tex-coord) :y)
 	   (rtg-math:s~ (cepl:texture texture tex-coord) :x)
 	   (* alpha (rtg-math:s~ (cepl:texture texture tex-coord) :w))))
+
+(cepl:defun-g default-rgb-frag ((tex-coord :vec2) &uniform (texture :sampler-2d) (alpha :float))
+  (rtg-math:v! (rtg-math:s~ (cepl:texture texture tex-coord) :x)
+	       (rtg-math:s~ (cepl:texture texture tex-coord) :y)
+	       (rtg-math:s~ (cepl:texture texture tex-coord) :z)
+	       (* alpha (rtg-math:s~ (cepl:texture texture tex-coord) :w))))
 
 (cepl:defun-g ulubis-cursor-vertex-shader ((vert cepl:g-pt) &uniform (ortho :mat4) (origin :mat4) (origin-inverse :mat4) (surface-scale :mat4) (surface-translate :mat4))
   (values (* ortho surface-translate origin-inverse surface-scale origin (rtg-math:v! (cepl:pos vert) 1))

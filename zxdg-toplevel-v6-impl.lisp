@@ -26,7 +26,9 @@
   ((:move move)
    (:destroy zxdg-toplevel-destroy)
    (:set-title set-title))
-  ((zxdg-surface-v6 :accessor zxdg-surface-v6 :initarg :zxdg-surface-v6 :initform nil)))
+  ((zxdg-surface-v6 :accessor zxdg-surface-v6
+		    :initarg :zxdg-surface-v6
+		    :initform nil)))
 
 (defmethod activate ((surface zxdg-toplevel-v6) active-surface mods)
   (call-next-method)
