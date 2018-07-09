@@ -48,11 +48,11 @@ An example configuration is as follows:
 
 (if (string-equal (symbol-name ulubis-backend:backend-name) "backend-drm-gbm")
     (progn
-      (setf (screen-width *compositor*) 1440)
-      (setf (screen-height *compositor*) 900))
+      (setf (screen-width *compositor*) 1920)
+      (setf (screen-height *compositor*) 1080))
     (progn
-      (setf (screen-width *compositor*) 900)
-      (setf (screen-height *compositor*) 600)))
+      (setf (screen-width *compositor*) 1400)
+      (setf (screen-height *compositor*) 900)))
 
 (set-keymap *compositor* "evdev" "apple" "gb" "" "")
 
@@ -61,10 +61,13 @@ An example configuration is as follows:
   (swank:create-server :port 4005 :style :spawn :dont-close t)
   (swank:set-package "ULUBIS")
 
+  ;; Make the default screen
+  (make-screen 'virtual-desktop-mode)
   ;; Add 4 views (virtual desktops) using the desktop-mode as default
-  (loop :for i :from 0 :to 3 :do (push-view 'desktop-mode))
-  (setf (current-view *compositor*) (first (views *compositor*))))
-
+  (loop :for i :from 0 :to 3
+     :do (push-view 'desktop-mode))
+  (setf (active-surface (screen *compositor*))
+	(first (surfaces (screen *compositor*)))))
 ```
 
 ## Hacking on ulubis
@@ -93,7 +96,7 @@ The vague roadmap for ulubis is as follows (not necessarily in order):
 - [ ] Add screen locking
 - [ ] Add video capture
 - [ ] Support multiple monitors
-- [ ] Support more (most?) Wayland clients
+- [ ] Support more Wayland clients (a web browser would be very nice)
 - [ ] XWayland support
 - [ ] Potentially define custom Wayland protocols for ulubis (maybe you want to replace a built-in menu with your own menu written in QML)
 
