@@ -30,6 +30,12 @@ only render the visible view.
    (projection :accessor projection
 	       :initarg :projection
 	       :initform (m4:identity))
+   (old-surface :accessor old-surface
+		:initarg :old-surface
+		:initform nil)
+   (new-surface :accessor new-surface
+		:initarg :new-surface
+		:initform nil)
    (slide-animation :accessor slide-animation
 		    :initarg :slide-animation
 		    :initform nil)
@@ -62,25 +68,51 @@ We should have a mode stack that sits above the views that defines this behaviou
 and that would allow for animations of these modes. E.g. a pan from one view to
 the next.
 |#
-(defkeybinding (:pressed "Right" Gui) (mode) (virtual-desktop-mode)
-  (with-slots ((screen view)) mode
-    (let* ((views (surfaces screen))
-	   (current-view (active-surface screen))
-	   (count (length views))
-	   (pos (position current-view views)))
-      (when (not (= pos (- count 1)))
-	(setf (active-surface screen) (nth (+ pos 1) views)))))
-  (setf (render-needed *compositor*) t))
+(defkeybinding (:pressed "Right" Gui) (mode)
+  (virtual-desktop-mode)
+  (unless (slide-animation mode)
+    (with-slots ((screen view)) mode
+      (let* ((views (surfaces screen))
+	     (current-view (active-surface screen))
+	     (count (length views))
+	     (pos (position current-view views)))
+	(when (not (= pos (- count 1)))
+	  (make-slide-animation mode screen current-view (nth (+ pos 1) views) 1))))
+    (setf (render-needed *compositor*) t)))
 
-(defkeybinding (:pressed "Left" Gui) (mode) (virtual-desktop-mode)
-  (with-slots ((screen view)) mode
-    (let* ((views (surfaces screen))
-	   (current-view (active-surface screen))
-	   (count (length views))
-	   (pos (position current-view views)))
-      (when (not (= pos 0))
-	(setf (active-surface screen) (nth (- pos 1) views)))))
-  (setf (render-needed *compositor*) t))
+(defkeybinding (:pressed "Left" Gui) (mode)
+  (virtual-desktop-mode)
+  (unless (slide-animation mode)
+    (with-slots ((screen view)) mode
+      (let* ((views (surfaces screen))
+	     (current-view (active-surface screen))
+	     (pos (position current-view views)))
+	(when (not (= pos 0))
+	  (make-slide-animation mode screen current-view (nth (- pos 1) views) -1))))
+    (setf (render-needed *compositor*) t)))
+
+(defun make-slide-animation (mode screen old-surface new-surface mult)
+  (setf (x new-surface) (* mult (screen-width *compositor*)))
+  (setf (slide-animation mode)
+	(parallel-animation (lambda ()
+			      (setf (active-surface screen) new-surface)
+			      (setf (x new-surface) 0)
+			      (setf (slide-animation mode) nil)
+			      (setf (old-surface mode) nil)
+			      (setf (new-surface mode) nil))
+			    (animation :duration 150
+				       :target new-surface
+				       :property 'x
+				       :to 0
+				       :easing-fn 'easing:in-out-exp)
+			    (animation :duration 150
+				       :target old-surface
+				       :property 'x
+				       :to (* -1 mult (screen-width *compositor*))
+				       :easing-fn 'easing:in-out-exp)))
+  (setf (old-surface mode) old-surface)
+  (setf (new-surface mode) new-surface)
+  (start-animation (slide-animation mode)))
 
 (cepl:defun-g vd-vert ((vert cepl:g-pt)
 		       &uniform
@@ -123,8 +155,14 @@ the next.
   (apply #'gl:clear-color (clear-color mode))
   (when desktop-fbo
     (cepl:clear desktop-fbo))
-  (unless (slide-animation mode)
+  (if (not (slide-animation mode))
+    ;; static view of single virtual desktop
     (cepl:with-blending (blending-parameters mode)
       (let ((view (active-surface (view mode))))
 	(setf (x view) 0)
-	(render view desktop-fbo)))))
+	(render view desktop-fbo)))
+    ;; If we are transitioning draw the two virtual desktops involved
+    (mapcar (lambda (virtual-destkop)
+	      (cepl:with-blending (blending-parameters mode)
+		(render virtual-destkop desktop-fbo)))
+	    (list (old-surface mode) (new-surface mode)))))
