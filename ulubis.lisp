@@ -180,9 +180,9 @@ moving it back. If views are also isurfaces that should be within ulubis.
 	 (handler-case (startup)
 	   (undefined-function ()
 	     (progn
-	       (push-screen 'virtual-desktop-mode)
+	       (make-screen 'virtual-desktop-mode)
 	       (push-view 'desktop-mode))
-	     (setf (current-view *compositor*) (first (views *compositor*)))))
+	     (setf (active-surface (screen *compositor*)) (first (surfaces (screen *compositor*))))))
 	 
 	 (register-mouse-motion-handler (backend *compositor*) 'call-mouse-motion-handler)
 	 (register-mouse-button-handler (backend *compositor*) 'call-mouse-button-handler)

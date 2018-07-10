@@ -6,7 +6,7 @@
 	 (xdg-surface (make-xdg-surface client 1 id)))
     (setf (wl-surface xdg-surface) surface)
     (setf (role surface) xdg-surface)
-    (push xdg-surface (surfaces (current-view *compositor*)))))
+    (push xdg-surface (surfaces (active-surface (screen *compositor*))))))
 
 (defimplementation xdg-shell ()
   ((:get-xdg-surface xdg-shell-get-xdg-surface))

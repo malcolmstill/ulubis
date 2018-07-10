@@ -42,6 +42,10 @@
    (mods :accessor mods :initarg :mods :initform nil)
    (fn :accessor fn :initarg :fn :initform (lambda ()))))
 
+(defmethod print-object ((kb key-binding) out)
+  (print-unreadable-object (kb out :type t)
+    (format out "~A ~A ~A" (op kb) (mods kb) (key kb))))
+
 (defconstant Shift 1)
 (defconstant Ctrl 4)
 (defconstant Alt 8)
