@@ -6,7 +6,7 @@
 	(shell-surface (make-wl-shell-surface client 1 id :delete-fn (callback wl-shell-surface-delete))))
     (setf (wl-surface shell-surface) surface)
     (setf (role surface) shell-surface)
-    (push shell-surface (surfaces (current-view *compositor*)))))
+    (push shell-surface (surfaces (active-surface (screen *compositor*))))))
 
 (def-wl-delete wl-shell-surface-delete (shell-surface)
   (remove-surface shell-surface *compositor*)
