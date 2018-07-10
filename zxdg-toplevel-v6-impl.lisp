@@ -2,7 +2,7 @@
 (in-package :ulubis)
 
 (def-wl-callback set-title (client toplevel (title :string))
-  (format t "Setting title of ~A to ~A~%" toplevel title))
+  )
 
 (def-wl-callback move (client toplevel (seat :pointer) (serial :uint32))
   (setf (moving-surface *compositor*) (make-move-op :surface toplevel

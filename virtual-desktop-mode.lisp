@@ -100,12 +100,12 @@ the next.
 			      (setf (slide-animation mode) nil)
 			      (setf (old-surface mode) nil)
 			      (setf (new-surface mode) nil))
-			    (animation :duration 150
+			    (animation :duration 315
 				       :target new-surface
 				       :property 'x
 				       :to 0
 				       :easing-fn 'easing:in-out-exp)
-			    (animation :duration 150
+			    (animation :duration 315
 				       :target old-surface
 				       :property 'x
 				       :to (* -1 mult (screen-width *compositor*))

@@ -92,7 +92,6 @@
 (defun remove-client (client-pointer)
   (let ((client (get-client client-pointer)))
     (loop :for resource :in (resources client) :do
-       (format t "resource: ~A~%" resource)
        (remove-surface resource *compositor*))
     (setf (resources client) nil)
     (setf waylisp::*clients* (remove-if (lambda (client)
@@ -104,11 +103,10 @@
     view))
 
 (defun views-with-surface (surface)
-  (loop :for view :in (views *compositor*)
+  (loop :for view :in (surfaces (screen *compositor*))
      :when (view-has-surface? surface view) :collect it))
 
 (defun remove-surface-from-view (surface view)
-  (format t "surface: ~A, view: ~A~%" surface view)
   (when (equalp (active-surface view) surface)
     (setf (active-surface view) nil))
   (setf (surfaces view) (remove surface (surfaces view))))
