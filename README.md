@@ -6,6 +6,10 @@
 
 Ulubis is a Wayland compositor written in Common Lisp. It is inspired by FVWM and StumpWM. The idea is that it is easy to hack on, customise, define your own interaction modes, etc. (see [alt-tab-mode.lisp](https://github.com/malcolmstill/ulubis/blob/master/alt-tab-mode.lisp) as an example of defining a custom mode)
 
+Using SLIME you can connect to the running compositor and modify its behaviour live.
+
+![SLIME](https://github.com/malcolmstill/ulubis/raw/master/slide-and-edit.gif)
+
 (I currently call it a compositor intentionally...let's get a bit more window management functionality in before calling it a WM)
 
 ## Installation of ulubis
