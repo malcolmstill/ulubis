@@ -1,0 +1,26 @@
+
+* Terminology
+
+** *view* - a view is what you might call a virtual desktop. A view will contain a subset of all the surfaces that the compositor knows about. A view has a mode stack. Only the topmost mode will be active at any one time. The mode controls all of the behaviour for that view: e.g. mouse and keyboard handlers, rendering.
+
+** *mode* - a mode is logically a set of methods for handling mouse interaction, keyboard interaction and rendering. For example we can have a desktop mode, which runs like your typical OS window system (i.e. move windows resize them), and then push on an alt tab mode that will cycle among the surfaces on the current view. When we release the key combination for alt tab mode, the mode gets popped off and we return to the desktop mode. We currently only have modes on views but we also want modes on screens. I think we can use the same framework for both.
+
+** *screen* - a screen is a physical display device, as you might expect. We assume for the moment that we have a single screen (there is no concept of a screen class, yet). We also want modes for screens such that we can define the behaviour for multiple virtual desktop environments (e.g. switch between them with animations etc.) 
+
+** *texture-of* - a method for returning a texture of a particular ulubis primitive. We can use this texture to render onto other things. What is the difference between *render* and *texture-of*? We currently have *texture-of* defined on *view* but not on *mode*. We *render* a *mode* into the FBO of the *view*. The compositor then takes the *texture-of* the *view* and draws with that on the screen.
+
+   Should *mode* also have *texture-of*? I'm not sure we do. We just need to ask the screen mode to render into the default FBO. In doing so it will ask for the *texture-of* the *view*s
+
+** *render* - 
+
+   When we render surfaces in a view we draw with *with-rect*. When we are drawing a view we are drawing with *with-screen*. *with-rect* is in screen coordinates (i.e. the left vertices of the rect are *width* away from the right vertices). With *with-screen* the vertices range from (1,1) to (-1,1).
+
+* How ulubis works
+
+** A note on the wl-surface slot of isurface
+   
+   We have multiple types of surfaces, e.g. wl-surface, xdg-surface, zxdg-surface. The wl-surface protocol is not rich enough to support the kind of desktop interaction we've grown accustomed to since the 80s. Therefore more protocols were introduced such as xdg-surface and zxdg-surface to add this functionality.
+
+   However the base renderable thing in Wayland is still a wl-surface. The wl-surface gives use access to the pixel buffer that we can copy onto the GPU and render. Therefore, on all of the surface-like objects we have a *wl-surface* slot that links to the actual *wl-surface* object. If we have a pure *wl-surface* its *wl-surface* slot will point to itself. If we have a *zxdg-toplevel* its *wl-surface* will point to the *wl-surface* being set via *zxdg-shell*. In this way we always have the *wl-surface* object to hand so that we can just *(wl-surface ...)* and render.
+   
+   
