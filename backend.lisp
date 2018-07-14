@@ -11,6 +11,7 @@
    register-mouse-motion-handler
    register-mouse-button-handler
    register-window-event-handler
+   set-draw-function
    swap-buffers
    destroy-backend
    event-loop-add-drm-fd
@@ -34,3 +35,4 @@
 (defgeneric event-loop-add-drm-fd (backend event-loop))
 (defgeneric set-scheduled (backend value))
 (defgeneric get-scheduled (backend))
+(defgeneric set-draw-function (backend draw-fn))

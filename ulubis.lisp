@@ -31,6 +31,7 @@ it's defined in there rather than in ulubis itself. Maybe I should think about
 moving it back. If views are also isurfaces that should be within ulubis.
 |#
 (defun draw-screen ()
+  (animation::update-animations (lambda () (setf (render-needed *compositor*) t)))
   (with-screen (vs)
     (gl:clear-color 0.3 0.3 0.3 0.0)
     (cepl:clear)
@@ -60,14 +61,13 @@ moving it back. If views are also isurfaces that should be within ulubis.
   (let ((libinput-fd (get-fd (backend *compositor*))))
     (initialize-animation event-loop)
     (wl-event-loop-add-fd event-loop libinput-fd 1 (callback input-callback) (null-pointer))
+    (set-draw-function (backend *compositor*) #'draw-screen)
     (event-loop-add-drm-fd (backend *compositor*) event-loop)
+    (draw-screen)
     (loop :while (running *compositor*)
        :do (progn
-	     (when (and (render-needed *compositor*) (not (get-scheduled (backend *compositor*))))
-	       (draw-screen))
 	     (wl-display-flush-clients (display *compositor*))
-	     (wl-event-loop-dispatch event-loop -1)
-	     (animation::update-animations (lambda () (setf (render-needed *compositor*) t)))))))
+	     (wl-event-loop-dispatch event-loop -1)))))
 
 (defun main-loop-sdl (event-loop)
   (let ((wayland-fd (wl-event-loop-get-fd event-loop)))
