@@ -135,7 +135,8 @@
   pointer-x
   pointer-y
   surface-width
-  surface-height)
+  surface-height
+  direction)
 
 ;; Check pointer is over client
 ;; If it is and there is no input-region return true
