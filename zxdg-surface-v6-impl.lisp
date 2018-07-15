@@ -15,6 +15,17 @@
       (zxdg-toplevel-v6-send-configure (->resource toplevel) 0 0 array)
       (zxdg-surface-v6-send-configure (->resource zxdg-surface) 0))))
 
+(def-wl-callback get-popup (client zxdg-surface (id :uint32) (parent :pointer) (positioner :pointer))
+  (let ((popup (make-zxdg-popup-v6 client 1 id :delete-fn (callback zxdg-popup-delete))))
+    (setf (zxdg-surface-v6 popup) zxdg-surface)
+    (setf (role (wl-surface zxdg-surface)) popup)
+    (setf (wl-surface popup) (wl-surface zxdg-surface))
+    (push popup (surfaces (active-surface (screen *compositor*))))
+    (with-wl-array array
+      (zxdg-popup-v6-send-configure (->resource popup) 0 0 1 1)
+      (zxdg-surface-v6-send-configure (->resource zxdg-surface) 0))))
+
 (defimplementation zxdg-surface-v6 (isurface)
-  ((:get-toplevel get-toplevel))
+  ((:get-toplevel get-toplevel)
+   (:get-popup get-popup))
   ())

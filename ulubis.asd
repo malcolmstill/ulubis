@@ -46,6 +46,8 @@
 	       (:file "zxdg-toplevel-v6-impl")
 	       (:file "zxdg-surface-v6-impl")
 	       (:file "zxdg-shell-v6-impl")
+	       (:file "zxdg-positioner-v6-impl")
+	       (:file "zxdg-popup-v6-impl")
 	       (:file "xdg-surface-impl")
 	       (:file "xdg-shell-impl")
 	       (:file "screenshot")
