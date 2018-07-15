@@ -88,28 +88,6 @@ moving it back. If views are also isurfaces that should be within ulubis.
 						   (setf (render-needed *compositor*) t)))
 		   (process-events (backend *compositor*)))))))))
 
-(defun resize-surface-relative (surface view delta-x delta-y)
-  (when (and (or (ulubis-zxdg-toplevel? surface) (ulubis-xdg-surface? surface)) (> (+ delta-x width) 32) (> (+ delta-y height) 32))
-    (if (equalp surface (active-surface view))
-	(waylisp:resize surface width height (get-milliseconds) :activate? t)
-	(waylisp:resize surface width height (get-milliseconds) :activate? nil))))
-
-(defun resize-surface-absolute (surface view width height)
-  (when (> width 32) (> height 32)
-    (if (equalp surface (active-surface view))
-	(resize surface width height (get-milliseconds) :activate? t)
-	(resize surface width height (get-milliseconds) :activate? nil))))
-
-(defun activate-surface (surface mode)
-  (with-slots (view) mode
-    (with-slots (active-surface) view
-      (setf active-surface
-	    (activate surface active-surface
-		      (list (mods-depressed *compositor*)
-			    (mods-latched *compositor*)
-			    (mods-locked *compositor*)
-			    (mods-group *compositor*)))))))
-
 (defun call-mouse-motion-handler (time x y)
   (when (show-cursor *compositor*)
     (setf (render-needed *compositor*) t))
