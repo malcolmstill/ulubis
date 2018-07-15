@@ -11,6 +11,15 @@
 						    :pointer-x (pointer-x *compositor*)
 						    :pointer-y (pointer-y *compositor*))))
 
+(def-wl-callback resize (client toplevel (seat :pointer) (serial :uint32) (edges :uint32))
+  (setf (resizing-surface *compositor*)
+	(make-resize-op :surface toplevel
+			:pointer-x (pointer-x *compositor*)
+			:pointer-y (pointer-y *compositor*)
+			:surface-width (effective-width toplevel)
+			:surface-height (effective-height toplevel)
+			:direction edges)))
+
 (def-wl-callback zxdg-toplevel-destroy (client toplevel)
   (setf (role (wl-surface toplevel)) nil)
   (remove-surface toplevel *compositor*)
@@ -24,6 +33,7 @@
 
 (defimplementation zxdg-toplevel-v6 (isurface ianimatable)
   ((:move move)
+   (:resize resize)
    (:destroy zxdg-toplevel-destroy)
    (:set-title set-title))
   ((zxdg-surface-v6 :accessor zxdg-surface-v6

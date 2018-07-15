@@ -25,13 +25,28 @@
 
 (defun resize-surface (x y view resize-op)
   "Resize surface given new pointer location (X,Y) and saved information in RESIZE-OP"
-  (let* ((saved-width (resize-op-surface-width resize-op))
+  (let* ((surface (resize-op-surface resize-op))
+	 (saved-width (resize-op-surface-width resize-op))
 	 (saved-height (resize-op-surface-height resize-op))
 	 (saved-pointer-x (resize-op-pointer-x resize-op))
 	 (saved-pointer-y (resize-op-pointer-y resize-op))
 	 (delta-x (- x saved-pointer-x))
 	 (delta-y (- y saved-pointer-y)))
-    (resize-surface-absolute (resize-op-surface resize-op) view (+ saved-width delta-x) (+ saved-height delta-y))))
+    (case (resize-op-direction resize-op)
+      (2 (resize-surface-absolute surface
+				  view
+				  saved-width
+				  (+ saved-height delta-y)))
+      (8 (resize-surface-absolute surface
+				  view
+				  (+ saved-width delta-x)
+				  saved-height))
+      (10 (resize-surface-absolute surface
+				   view
+				   (+ saved-width delta-x)
+				   (+ saved-height delta-y)))
+      (t nil))))
+
 
 (defun pointer-changed-surface (mode x y old-surface new-surface)
   (setf (cursor-surface *compositor*) nil)
@@ -136,17 +151,15 @@
   (when (and (= button #x110) (= state 1) (= (+ Gui Shift) (mods-depressed *compositor*)))
     (let ((surface (surface-under-pointer (pointer-x *compositor*) (pointer-y *compositor*) (view mode))))
       (when surface
-	(let ((width (if (input-region (wl-surface surface))
-			 (width (first (last (rects (input-region (wl-surface surface))))))
-			 (width (wl-surface surface))))
-	      (height (if (input-region (wl-surface surface))
-			  (height (first (last (rects (input-region (wl-surface surface))))))
-			  (height (wl-surface surface)))))
-	  (setf (resizing-surface *compositor*) (make-resize-op :surface surface
-								:pointer-x (pointer-x *compositor*)
-								:pointer-y (pointer-y *compositor*)
-								:surface-width width
-								:surface-height height))))))
+	(let ((width (effective-width surface))
+	      (height (effective-height surface)))
+	  (setf (resizing-surface *compositor*)
+		(make-resize-op :surface surface
+				:pointer-x (pointer-x *compositor*)
+				:pointer-y (pointer-y *compositor*)
+				:surface-width width
+				:surface-height height
+				:direction 10))))))
 
   (when (and (resizing-surface *compositor*) (= button #x110) (= state 0))
     (setf (resizing-surface *compositor*) nil))

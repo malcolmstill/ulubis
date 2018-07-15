@@ -19,3 +19,13 @@
 				0
 				0
 				0)))
+
+(defun effective-width (surface)
+  (if (input-region (wl-surface surface))
+      (width (first (last (rects (input-region (wl-surface surface))))))
+      (width (wl-surface surface))))
+
+(defun effective-height (surface)
+  (if (input-region (wl-surface surface))
+      (height (first (last (rects (input-region (wl-surface surface))))))
+      (height (wl-surface surface))))
