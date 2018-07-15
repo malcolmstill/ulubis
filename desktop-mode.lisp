@@ -5,11 +5,17 @@
 (defparameter *ortho* (m4:identity))
 
 (defmode desktop-mode ()
-  ((clear-color :accessor clear-color :initarg :clear-color :initform (list (random 1.0)
-									    (random 1.0)
-									    (random 1.0) 0.0))
-   (projection :accessor projection :initarg :projection :initform (m4:identity))
-   (focus-follows-mouse :accessor focus-follows-mouse :initarg :focus-follows-mouse :initform nil)))
+  ((clear-color :accessor clear-color
+		:initarg :clear-color
+		:initform (list (random 1.0)
+				(random 1.0)
+				(random 1.0) 0.0))
+   (projection :accessor projection
+	       :initarg :projection
+	       :initform (m4:identity))
+   (focus-follows-mouse :accessor focus-follows-mouse
+			:initarg :focus-follows-mouse
+			:initform nil)))
 
 (defmethod init-mode ((mode desktop-mode))
   (setf *ortho* (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1 -1))
@@ -51,13 +57,32 @@
 (defun pulse-animation (surface)
   (setf (origin-x surface) (/ (width (wl-surface surface)) 2))
   (setf (origin-y surface) (/ (height (wl-surface surface)) 2))
-  (sequential-animation nil
-			(parallel-animation nil
-					    (animation :duration 100 :easing-fn 'easing:linear :to 1.05 :target surface :property 'scale-x)
-					    (animation :duration 100 :easing-fn 'easing:linear :to 1.05 :target surface :property 'scale-y))
-			(parallel-animation nil
-					    (animation :duration 100 :easing-fn 'easing:linear :to 1.0 :target surface :property 'scale-x)
-					    (animation :duration 100 :easing-fn 'easing:linear :to 1.0 :target surface :property 'scale-y))))
+  (sequential-animation
+   nil
+   (parallel-animation
+    nil
+    (animation :duration 100
+	       :easing-fn 'easing:linear
+	       :to 1.05
+	       :target surface
+	       :property 'scale-x)
+    (animation :duration 100
+	       :easing-fn 'easing:linear
+	       :to 1.05
+	       :target surface
+	       :property 'scale-y))
+   (parallel-animation
+    nil
+    (animation :duration 100
+	       :easing-fn 'easing:linear
+	       :to 1.0
+	       :target surface
+	       :property 'scale-x)
+    (animation :duration 100
+	       :easing-fn 'easing:linear
+	       :to 1.0
+	       :target surface
+	       :property 'scale-y))))
 
 (defmethod mouse-button-handler ((mode desktop-mode) time button state)
   ;; 1. Change (possibly) the active surface
@@ -111,13 +136,9 @@
 			       (view mode)) 
     (let ((surface (surface-under-pointer (pointer-x *compositor*)
 			       (pointer-y *compositor*)
-			       (view mode)) ))
-      (when (and surface (pointer (client surface)))
-	(wl-pointer-send-button (->resource (pointer (client surface)))
-				0
-				time
-				button
-				state)))))
+			       (view mode))))
+      (send-button surface time button state))))
+	
 
 (defkeybinding (:pressed "q" Ctrl Shift) () (desktop-mode)
   (uiop:quit))
