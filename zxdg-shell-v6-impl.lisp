@@ -7,8 +7,12 @@
     (setf (wl-surface zxdg-surface) surface)
     (setf (role surface) zxdg-surface)))
 
+(def-wl-callback create-positioner (client zxdg-shell (id :uint32))
+  (make-zxdg-positioner-v6 client 1 id))
+
 (defimplementation zxdg-shell-v6 ()
-  ((:get-xdg-surface get-xdg-surface))
+  ((:get-xdg-surface get-xdg-surface)
+   (:create-positioner create-positioner))
   ())
 
 (def-wl-delete client-delete (zxdg-shell)

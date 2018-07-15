@@ -218,6 +218,8 @@ moving it back. If views are also isurfaces that should be within ulubis.
 	 (set-implementation-zxdg-shell-v6)
 	 (set-implementation-zxdg-surface-v6)
 	 (set-implementation-zxdg-toplevel-v6)
+	 (set-implementation-zxdg-positioner-v6)
+	 (set-implementation-zxdg-popup-v6)
 	 (set-implementation-xdg-shell)
 	 (set-implementation-xdg-surface)
 
