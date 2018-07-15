@@ -12,12 +12,22 @@
    (opacity :accessor opacity :initarg :opacity :initform 1.0)))
 
 (defun enter-animation (mode)
-  (parallel-animation nil
-   (animation :duration 150 :target mode :property 'opacity :to 0.15 :easing-fn 'easing:linear)))
+  (parallel-animation
+   nil
+   (animation :duration 150
+	      :target mode
+	      :property 'opacity
+	      :to 0.15
+	      :easing-fn 'easing:linear)))
 
 (defun exit-animation (mode)
-  (parallel-animation (lambda () (pop-mode mode))
-   (animation :duration 150 :target mode :property 'opacity :to 1.0 :easing-fn 'easing:linear)))
+  (parallel-animation
+   (lambda () (pop-mode mode))
+   (animation :duration 150
+	      :target mode
+	      :property 'opacity
+	      :to 1.0
+	      :easing-fn 'easing:linear)))
 
 (defmethod init-mode ((mode alt-tab-mode))
   (setf (surfaces mode) (remove-if (lambda (surface)

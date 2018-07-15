@@ -105,3 +105,14 @@
 			   (->resource (wl-surface surface))
 			   (round (* 256 (- x (x surface))))
 			   (round (* 256 (- y (y surface)))))))
+
+(defmethod send-button ((nothing (eql nil)) time button state)
+  nil)
+
+(defmethod send-button ((surface isurface) time button state)
+  (when (and (client surface) (pointer (client surfacE)))
+    (wl-pointer-send-button (->resource (pointer (client surface)))
+			    0
+			    time
+			    button
+			    state)))
