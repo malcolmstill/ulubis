@@ -138,6 +138,15 @@
   surface-height
   direction)
 
+(defun update-pointer (delta-x delta-y)
+  (with-slots (pointer-x pointer-y screen-width screen-height) *compositor*
+    (incf pointer-x delta-x)
+    (incf pointer-y delta-y)
+    (when (< pointer-x 0) (setf pointer-x 0))
+    (when (< pointer-y 0) (setf pointer-y 0))
+    (when (> pointer-x screen-width) (setf pointer-x screen-width))
+    (when (> pointer-y screen-height) (setf pointer-y screen-height))))
+
 ;; Check pointer is over client
 ;; If it is and there is no input-region return true
 ;; It it is and there is an input-region

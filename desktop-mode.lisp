@@ -16,74 +16,15 @@
   (cepl:map-g #'mapping-pipeline nil)
   (setf (render-needed *compositor*) t))
 
-(defun move-surface (x y move-op)
-  "Move surface to location X and Y given the MOVE-OP"
-  (let ((surface (move-op-surface move-op)))
-    (setf (x surface) (round (+ (move-op-surface-x move-op) (- x (move-op-pointer-x move-op)))))
-    (setf (y surface) (round (+ (move-op-surface-y move-op) (- y (move-op-pointer-y move-op)))))
-    (setf (render-needed *compositor*) t)))
-
-(defun resize-surface (x y view resize-op)
-  "Resize surface given new pointer location (X,Y) and saved information in RESIZE-OP"
-  (let* ((surface (resize-op-surface resize-op))
-	 (saved-width (resize-op-surface-width resize-op))
-	 (saved-height (resize-op-surface-height resize-op))
-	 (saved-pointer-x (resize-op-pointer-x resize-op))
-	 (saved-pointer-y (resize-op-pointer-y resize-op))
-	 (delta-x (- x saved-pointer-x))
-	 (delta-y (- y saved-pointer-y)))
-    (case (resize-op-direction resize-op)
-      (2 (resize-surface-absolute surface
-				  view
-				  saved-width
-				  (+ saved-height delta-y)))
-      (8 (resize-surface-absolute surface
-				  view
-				  (+ saved-width delta-x)
-				  saved-height))
-      (10 (resize-surface-absolute surface
-				   view
-				   (+ saved-width delta-x)
-				   (+ saved-height delta-y)))
-      (t nil))))
-
-
 (defun pointer-changed-surface (mode x y old-surface new-surface)
   (setf (cursor-surface *compositor*) nil)
   (when (focus-follows-mouse mode)
     (deactivate old-surface)) 
-  (when (and old-surface (pointer (client old-surface)))
-    (wl-pointer-send-leave (->resource (pointer (client old-surface)))
-			   0
-			   (->resource (wl-surface old-surface))))
+  (send-leave old-surface)
   (setf (pointer-surface *compositor*) new-surface)
   (when (focus-follows-mouse mode)
     (activate-surface new-surface mode))
-  (when (and new-surface (pointer (client new-surface)))
-    (wl-pointer-send-enter (->resource (pointer (client new-surface)))
-			   0
-			   (->resource (wl-surface new-surface))
-			   (round (* 256 (- x (x new-surface))))
-			   (round (* 256 (- y (y new-surface)))))))
-
-(defun send-surface-pointer-motion (x y time surface)
-  (when (and surface (pointer (client surface)))
-    (wl-pointer-send-motion (->resource (pointer (client surface)))
-			    time
-			    (round (* 256 (- x (x surface))))
-			    (round (* 256 (- y (y surface)))))
-    ;; Need to check client handles version 5
-    ;;(wl-pointer-send-frame (waylisp:->pointer (waylisp:client surface)))
-    ))
-
-(defun update-pointer (delta-x delta-y)
-  (with-slots (pointer-x pointer-y screen-width screen-height) *compositor*
-    (incf pointer-x delta-x)
-    (incf pointer-y delta-y)
-    (when (< pointer-x 0) (setf pointer-x 0))
-    (when (< pointer-y 0) (setf pointer-y 0))
-    (when (> pointer-x screen-width) (setf pointer-x screen-width))
-    (when (> pointer-y screen-height) (setf pointer-y screen-height))))
+  (send-enter new-surface x y))
 
 (defmethod mouse-motion-handler ((mode desktop-mode) time delta-x delta-y)
   (with-slots (pointer-x pointer-y) *compositor*
