@@ -8,7 +8,7 @@
   (let ((keyboard (make-wl-keyboard client (get-version seat) id)))
     (setf (keyboard client) keyboard)
     (when (>= (get-version keyboard) 4)
-      (wl-keyboard-send-repeat-info (->resource keyboard) 30 200)
+      ;;(wl-keyboard-send-repeat-info (->resource keyboard) 30 200)
       (multiple-value-bind (fd size) (get-keymap *compositor*)
 	(wl-keyboard-send-keymap (->resource keyboard) 1 fd size)))))
 

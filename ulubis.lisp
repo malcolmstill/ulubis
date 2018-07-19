@@ -3,64 +3,137 @@
 
 (defparameter *compositor* nil)
 
-#|
-We currently just ask the current-view to render itself.
-This does not allow animation. Instead, if on the compositor
-level (when we support multiple monitors it will be on the level
-of the desktop...the compositor will have a list of desktops),
-we also have the concept of modes, we can ask the current mode
-to render itself. That mode will have the virtual desktops (views)
-as "surfaces" and can render them as it pleases.
+(defvar *vertex-shader-code* "#version 150 core
 
-Instead of (texture-of (current-view *compositor*))
-we'll want (texture-of (current-mode *compositor*))
+in vec2 position;
+in vec2 texcoord;
+out vec2 Texcoord;
 
-At the moment only views have fbos.
-Scratch that, effects also have fbos. But let's ignore effects
-for the moment.
+void main()
+{
+    Texcoord = texcoord;
+    gl_Position = vec4(position, 0.0, 1.0);
+}
+")
 
-In the way that we have fbos on view we will have fbos on desktops.
-Or are fbos on desktops just the default fbo that we have from our
-GL context? I think the latter...we don't need an explicit fbo.
+(defvar *fragment-shader-code* "
+#version 150 core
 
-However, I think we want our views to also behave like surfaces.
-I.e. they have x,y position widht height (albeit that of the screen).
+in vec2 Texcoord;
+out vec4 outColor;
 
-We currently define isurface within waylisp. I can't remember exactly why
-it's defined in there rather than in ulubis itself. Maybe I should think about
-moving it back. If views are also isurfaces that should be within ulubis.
-|#
+uniform sampler2D tex;
+
+void main()
+{
+    outColor = texture(tex, Texcoord);
+}
+")
+
+
 (defun draw-screen ()
-  (with-screen (vs)
-    (gl:clear-color 0.3 0.3 0.3 0.0)
-    (cepl:clear)
-    ;; We are just rendering into the default fbo
-    (render (current-mode (screen *compositor*)))
-    (gl:enable :blend)
-    (draw-cursor (cursor-surface *compositor*)
-		 nil
-		 (pointer-x *compositor*)
-		 (pointer-y *compositor*)
-		 (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1 -1))
-    (swap-buffers (backend *compositor*))
-    (setf (render-needed *compositor*) nil)
-    (loop :for callback :in (callbacks *compositor*) :do
-	 (when (find (client callback) waylisp::*clients*)
-	   ;; We can end up getting a frame request after the client has been deleted
-	   ;; if we try and send-done or destroy we will get a memory fault
-	   (wl-callback-send-done (->resource callback) (get-milliseconds))
-	   (wl-resource-destroy (->resource callback)))
-	 (remove-resource callback))
-    (setf (callbacks *compositor*) nil)))
+  (let* ((view (active-surface (screen *compositor*)))
+	 (surfaces (surfaces view)))
+  (gl:clear-color 1.0 0.5 0.5 1.0)
+  (gl:clear :color-buffer)
+  
+  (loop :for surface :in (reverse surfaces)
+     :do (let* ((surface (wl-surface surface)))
+	   (when (texture surface)
+	     (let* ((x (x surface))
+		    (y (y surface))
+		    (texture (texture surface))
+		    (width (width texture))
+		    (height (height texture)))
+	       (gl:bind-texture :texture-2d (cepl-texture texture))
+	       (gl:draw-arrays :triangles 0 6)))))
+  (swap-buffers (backend *compositor*))))
+
+
+(defun process-callbacks ()
+  (loop :for callback :in (callbacks *compositor*) :do
+       (when (find (client callback) waylisp::*clients*)
+	 ;; We can end up getting a frame request after the client has been deleted
+	 ;; if we try and send-done or destroy we will get a memory fault
+	 (format t "Sending callback: ~A~%" (get-milliseconds))
+	 (wl-callback-send-done (->resource callback) (get-milliseconds))
+	 (wl-resource-destroy (->resource callback)))
+       (remove-resource callback))
+  (setf (callbacks *compositor*) nil))
 
 (defcallback input-callback :void ((fd :int) (mask :int) (data :pointer))
   (process-events (backend *compositor*)))
 
+(defvar *draw-times* '(0))
+(defvar *vertex-shader* nil)
+(defvar *fragment-shader* nil)
+(defvar *program* nil)
+(defvar *pos-attrib* nil)
+(defvar *tex-attrib* nil)
+(defvar *vbo* nil)
+(defvar *gl-array* nil)
+
 (defun main-loop-drm (event-loop)
   (let ((libinput-fd (get-fd (backend *compositor*))))
+    (egl:init-egl-wayland)
+    (egl:bind-wayland-display (cepl.drm-gbm::get-egl-display) (display *compositor*))
     (initialize-animation event-loop)
     (wl-event-loop-add-fd event-loop libinput-fd 1 (callback input-callback) (null-pointer))
     (event-loop-add-drm-fd (backend *compositor*) event-loop)
+
+    (setf *vbo* (first (gl:gen-buffers 1)))
+
+    (setf *vao* (first (gl:gen-vertex-arrays 1)))
+    (gl:bind-vertex-array *vao*)
+    
+    (setf *verts* #(-0.5 -0.5  0.0  1.0
+		     0.5 -0.5  1.0  1.0
+		    -0.5  0.5  0.0  0.0
+		    -0.5  0.5  0.0  0.0
+		     0.5 -0.5  1.0  1.0
+		     0.5  0.5  1.0  0.0))
+    (setf *gl-array* (gl:alloc-gl-array :float 24))
+    (dotimes (i (length *verts*))
+      (setf (gl:glaref *gl-array* i) (aref *verts* i)))
+
+    (gl:bind-buffer :array-buffer *vbo*)
+    (gl:buffer-data :array-buffer :static-draw *gl-array*)
+
+    
+    (setf *vertex-shader* (gl:create-shader :vertex-shader))
+    (gl:shader-source *vertex-shader* (list *vertex-shader-code*))
+    (gl:compile-shader *vertex-shader*)
+
+    (setf *fragment-shader* (gl:create-shader :fragment-shader))
+    (gl:shader-source *fragment-shader* (list *fragment-shader-code*))
+    (gl:compile-shader *fragment-shader*)
+
+    (setf *program* (gl:create-program))
+    (gl:attach-shader *program* *vertex-shader*)
+    (gl:attach-shader *program* *fragment-shader*)
+    (gl:link-program *program*)
+    (gl:use-program *program*)
+
+    (setf *pos-attrib* (gl:get-attrib-location *program* "position"))
+    (gl:enable-vertex-attrib-array *pos-attrib*)
+    (gl:vertex-attrib-pointer *pos-attrib*
+			      2
+			      :float
+			      nil
+			      (* 4 4)
+			      (cffi:null-pointer))
+
+    (setf *tex-attrib* (gl:get-attrib-location *program* "texcoord"))
+    (gl:enable-vertex-attrib-array *tex-attrib*)
+    (gl:vertex-attrib-pointer *tex-attrib*
+			      2
+			      :float
+			      nil
+			      (* 4 4) 
+			      (cffi:inc-pointer (cffi:null-pointer) (* 2 4)))
+
+    (gl:active-texture :texture0)
+        
     (loop :while (running *compositor*)
        :do (progn
 	     (when (and (render-needed *compositor*) (not (get-scheduled (backend *compositor*))))
