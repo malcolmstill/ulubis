@@ -4,33 +4,93 @@
 (defclass texture-gl ()
   ((width :accessor width :initarg :width :initform 0)
    (height :accessor height :initarg :height :initform 0)
-   (cepl-texture :accessor cepl-texture :initarg :cepl-texture :initform 0)))
+   (cepl-texture :accessor cepl-texture :initarg :cepl-texture :initform nil)))
 
 (defun create-texture (surface)
   (when (and (buffer surface) (not (pointer-eq (buffer surface) (null-pointer))))
-    (let* ((buffer (buffer surface))
-	   (shm-buffer (wl-shm-buffer-get buffer))
-	   (w (wl-shm-buffer-get-width shm-buffer))
-	   (h (wl-shm-buffer-get-height shm-buffer))
-	   (stride (wl-shm-buffer-get-stride shm-buffer))
-	   (array (cepl:make-c-array-from-pointer
-		   (list w h)
-		   :uint8-vec4 
-		   (wl-shm-buffer-get-data shm-buffer))))
-      (setf (width surface) w)
-      (setf (height surface) h)
-      (when (and (texture surface) (cepl-texture (texture surface)))
-	(cepl:free (cepl-texture (texture surface))))
-      (setf (texture surface) (make-instance 'texture-gl
-					     :width w
-					     :height h
-					     :cepl-texture
-					     (cepl:make-texture
-					      array
-					      :element-type :rgba8)))
-      ;; Copy pixels from shared-memory buffer to SDL texture
-      (wl-buffer-send-release buffer)
-      (setf (buffer surface) (null-pointer)))))
+    (let ((egl-display (cepl.drm-gbm::get-egl-display)))
+      (with-foreign-object (texture-format :uint32)
+	(if (not (= 0 (egl:query-wayland-buffer egl-display (buffer surface) #x3080 texture-format)))
+	    (create-texture-egl egl-display surface (mem-aref texture-format :uint32))
+	    (create-texture-shm surface))))))
+
+(defun create-texture-egl (display surface texture-format)
+  (with-foreign-objects ((width :uint32) (height :uint32) (attribs :uint32))
+    (egl:query-wayland-buffer display (buffer surface) #x3057 width)
+    (egl:query-wayland-buffer display (buffer surface) #x3056 height)
+    (let ((width (mem-aref width :uint32))
+	  (height (mem-aref width :uint32)))
+      (setf (width surface) width)
+      (setf (height surface) height)
+      (setf (mem-ref attribs :int32) #x3038) ;; EGL_NONE
+      (let ((image (egl:create-image display (cepl.drm-gbm::get-egl-context) #x31D5 (buffer surface) attribs)))
+	(when (and (texture surface) (cepl-texture (texture surface)))
+	  (cepl:free (cepl-texture (texture surface))))
+	(setf (texture surface) (make-egl-texture image width height))
+	(wl-buffer-send-release (buffer surface))
+	(setf (buffer surface) (null-pointer))))))
+
+
+(defun create-texture-shm (surface)
+  (let* ((buffer (buffer surface))
+	 (shm-buffer (wl-shm-buffer-get buffer))
+	 (width (wl-shm-buffer-get-width shm-buffer))
+	 (height (wl-shm-buffer-get-height shm-buffer))
+	 (stride (wl-shm-buffer-get-stride shm-buffer))
+	 (image (wl-shm-buffer-get-data shm-buffer)))
+	 ;; (array (cepl:make-c-array-from-pointer
+	 ;; 	 (list w h)
+	 ;; 	 :uint8-vec4 
+	 ;; 	 (wl-shm-buffer-get-data shm-buffer))))
+    (setf (width surface) width)
+    (setf (height surface) height)
+    (when (and (texture surface) (cepl-texture (texture surface)))
+      (cepl:free (cepl-texture (texture surface))))
+    (setf (texture surface) (make-gl-texture image width height))
+	  ;; (make-instance 'texture-gl
+	  ;; 				   :width w
+	  ;; 				   :height h
+	  ;; 				   :cepl-texture
+	  ;; 				   (cepl:make-texture
+	  ;; 				    array
+	  ;; 				    :element-type :rgba8)))
+    ;; Copy pixels from shared-memory buffer to SDL texture
+    (wl-buffer-send-release buffer)
+    (setf (buffer surface) (null-pointer))))
+
+(defun make-egl-texture (image width height)
+  (let* ((ids (gl:gen-textures 1))
+	 (id (first ids)))
+    (gl:bind-texture :texture-2d id)
+    (gl:tex-parameter :texture-2d :texture-mag-filter :nearest)
+    (gl:tex-parameter :texture-2d :texture-min-filter :nearest)
+    (egl:image-target-texture-2DOES #xDE1 image)
+    (gl:bind-texture :texture-2d 0)
+    (make-instance 'texture-gl
+		   :width width
+		   :height height
+		   :cepl-texture (cepl:make-texture-from-id id
+							    :mutable-p nil
+							    :fixed-sample-locations t
+							    :allocated t
+							    :texture-type :texture-2d
+							    :element-type :rgba8
+							    :base-dimensions (list width height)
+							    ))))
+
+(defun make-gl-texture (image width height)
+  (let* ((ids (gl:gen-textures 1))
+	 (id (first ids)))
+    (gl:bind-texture :texture-2d id)
+    (gl:tex-parameter :texture-2d :texture-mag-filter :nearest)
+    (gl:tex-parameter :texture-2d :texture-min-filter :nearest)
+    (gl:tex-image-2d :texture-2d 0 :rgba width height 0 :rgba :unsigned-byte image)
+    (gl:bind-texture :texture-2d 0)
+    (make-instance 'texture-gl
+		   :width width
+		   :height height
+		   :cepl-texture (cepl:make-texture-from-id id :element-type :rgba8 :base-dimensions '(? ?) ))))
+
 
 (defmacro with-blending-on-fbo (blending-params fbo &body body)
   (let ((b-params (gensym "blending-params")))
