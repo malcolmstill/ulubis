@@ -15,7 +15,13 @@
    destroy-backend
    event-loop-add-drm-fd
    set-scheduled
-   get-scheduled))
+   get-scheduled
+   init-egl
+   egl-supported?
+   egl-surface?
+   egl-get-dimensions
+   egl-texture-from-image
+   ))
 
 (in-package :ulubis-backend)
 
@@ -29,6 +35,11 @@
 (defgeneric register-window-event-handler (backend keyboard-handler)) ;; Useful if running on X
 (defgeneric swap-buffers (backend))
 (defgeneric destroy-backend (backend))
+(defgeneric init-egl (backend wl-display))
+(defgeneric egl-supported? (backend))
+(defgeneric egl-surface? (backend buffer))
+(defgeneric egl-get-dimensions (backend buffer))
+(defgeneric egl-texture-from-image (backend buffer width height))
 
 ;; DRM backend only
 (defgeneric event-loop-add-drm-fd (backend event-loop))

@@ -44,20 +44,24 @@ moving it back. If views are also isurfaces that should be within ulubis.
 		 (ortho 0 (screen-width *compositor*) (screen-height *compositor*) 0 1 -1))
     (swap-buffers (backend *compositor*))
     (setf (render-needed *compositor*) nil)
-    (loop :for callback :in (callbacks *compositor*) :do
-	 (when (find (client callback) waylisp::*clients*)
-	   ;; We can end up getting a frame request after the client has been deleted
-	   ;; if we try and send-done or destroy we will get a memory fault
-	   (wl-callback-send-done (->resource callback) (get-milliseconds))
-	   (wl-resource-destroy (->resource callback)))
-	 (remove-resource callback))
+    (process-callbacks)
     (setf (callbacks *compositor*) nil)))
+
+(defun process-callbacks ()
+  (loop :for callback :in (callbacks *compositor*) :do
+       (when (find (client callback) waylisp::*clients*)
+	 ;; We can end up getting a frame request after the client has been deleted
+	 ;; if we try and send-done or destroy we will get a memory fault
+	 (wl-callback-send-done (->resource callback) (get-milliseconds))
+	 (wl-resource-destroy (->resource callback)))
+       (remove-resource callback)))
 
 (defcallback input-callback :void ((fd :int) (mask :int) (data :pointer))
   (process-events (backend *compositor*)))
 
 (defun main-loop-drm (event-loop)
   (let ((libinput-fd (get-fd (backend *compositor*))))
+    (init-egl (backend *compositor*) (display *compositor*))
     (initialize-animation event-loop)
     (wl-event-loop-add-fd event-loop libinput-fd 1 (callback input-callback) (null-pointer))
     (event-loop-add-drm-fd (backend *compositor*) event-loop)
