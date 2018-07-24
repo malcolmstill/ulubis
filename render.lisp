@@ -7,30 +7,50 @@
    (cepl-texture :accessor cepl-texture :initarg :cepl-texture :initform 0)))
 
 (defun create-texture (surface)
-  (when (and (buffer surface) (not (pointer-eq (buffer surface) (null-pointer))))
-    (let* ((buffer (buffer surface))
-	   (shm-buffer (wl-shm-buffer-get buffer))
-	   (w (wl-shm-buffer-get-width shm-buffer))
-	   (h (wl-shm-buffer-get-height shm-buffer))
-	   (stride (wl-shm-buffer-get-stride shm-buffer))
-	   (array (cepl:make-c-array-from-pointer
-		   (list w h)
-		   :uint8-vec4 
-		   (wl-shm-buffer-get-data shm-buffer))))
-      (setf (width surface) w)
-      (setf (height surface) h)
-      (when (and (texture surface) (cepl-texture (texture surface)))
-	(cepl:free (cepl-texture (texture surface))))
-      (setf (texture surface) (make-instance 'texture-gl
-					     :width w
-					     :height h
-					     :cepl-texture
-					     (cepl:make-texture
-					      array
-					      :element-type :rgba8)))
-      ;; Copy pixels from shared-memory buffer to SDL texture
-      (wl-buffer-send-release buffer)
-      (setf (buffer surface) (null-pointer)))))
+  (with-slots (buffer) surface
+    (when (and buffer (not (pointer-eq buffer (null-pointer))))
+      (if (and (egl-supported? (backend *compositor*)) (egl-surface? (backend *compositor*) buffer))
+	  (create-texture-egl surface)
+	  (create-texture-shm surface)))))
+
+(defun create-texture-egl (surface)
+  (multiple-value-bind (width height) (egl-get-dimensions (backend *compositor*) (buffer surface))
+    (setf (width surface) width)
+    (setf (height surface) height)
+    (when (and (texture surface) (cepl-texture (texture surface)))
+      (cepl:free (cepl-texture (texture surface))))
+    (setf (texture surface) (make-instance 'texture-gl :width width
+					   :height height
+					   :cepl-texture
+					   (egl-texture-from-image (backend *compositor*) (buffer surface) width height)))
+    (wl-buffer-send-release (buffer surface))
+    (setf (buffer surface) (null-pointer))))
+
+(defun create-texture-shm (surface)
+  (let* ((buffer (buffer surface))
+	 (shm-buffer (wl-shm-buffer-get buffer))
+	 (width (wl-shm-buffer-get-width shm-buffer))
+	 (height (wl-shm-buffer-get-height shm-buffer))
+	 (stride (wl-shm-buffer-get-stride shm-buffer))
+	 (array (cepl:make-c-array-from-pointer
+		 (list width height)
+		 :uint8-vec4
+		 (wl-shm-buffer-get-data shm-buffer))))
+    (setf (width surface) width)
+    (setf (height surface) height)
+    (when (and (texture surface) (cepl-texture (texture surface)))
+      (cepl:free (cepl-texture (texture surface))))
+    (setf (texture surface)
+	  (make-instance 'texture-gl
+			 :width width
+			 :height height
+			 :cepl-texture
+			 (cepl:make-texture
+			  array
+			  :element-type :rgba8)))
+    ;; Copy pixels from shared-memory buffer to SDL texture
+    (wl-buffer-send-release buffer)
+    (setf (buffer surface) (null-pointer))))
 
 (defmacro with-blending-on-fbo (blending-params fbo &body body)
   (let ((b-params (gensym "blending-params")))
