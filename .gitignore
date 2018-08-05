@@ -1,3 +1,5 @@
 *.fasl
 ulubis-sdl
 ulubis
+tests/drm-demo
+tests/drm-demo-page-flip
