@@ -14,22 +14,14 @@ Using SLIME you can connect to the running compositor and modify its behaviour l
 
 ## Installation of ulubis
 
-- Ensure you have SBCL or CCL and Quicklisp installed.
+- Ensure you have SBCL and Quicklisp installed.
 - Build `ulubis` / `ulubis-sdl`
 ```
-git clone https://github.com/malcolmstill/ulubis.git
+git clone --recurse-submodules https://github.com/malcolmstill/ulubis.git
 cd ulubis
-sbcl --eval '(load "build-ulubis.lisp")'
+cat build-ulubis.lisp | sbcl
 ```
 
-or
-
-```
-sbcl --eval '(load "build-ulubis-sdl.lisp")'
-```
-
-If quicklisp complains about not finding the dependencies it's because I don't have it in the official distribution. To
-get around that add clone the dependency (e.g. `cl-drm`) to the `local-projects` dir of quicklisp.
 
 ## Running ulubis
 
