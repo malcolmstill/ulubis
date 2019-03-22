@@ -5,6 +5,12 @@
 (ql:quickload :osicat)
 (ql:quickload :trivial-dump-core)
 (ql:quickload :uiop)
+(ql:quickload :closer-mop)
+(ql:quickload :swank)
+(ql:quickload :rtg-math)
+(ql:quickload :trivial-backtrace)
+(ql:quickload :cl-cairo2)
+(ql:quickload :zpng)
 
 (load "cl-drm/cl-drm.asd")
 (asdf:load-system :cl-drm)
