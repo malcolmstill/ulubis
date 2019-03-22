@@ -1,0 +1,27 @@
+[submodule "cl-wayland"]
+	path = cl-wayland
+	url = git@github.com:malcolmstill/cl-wayland
+[submodule "cl-drm"]
+	path = cl-drm
+	url = git@github.com:malcolmstill/cl-drm
+[submodule "cl-egl"]
+	path = cl-egl
+	url = git@github.com:malcolmstill/cl-egl
+[submodule "cl-gbm"]
+	path = cl-gbm
+	url = git@github.com:malcolmstill/cl-gbm
+[submodule "cl-xkb"]
+	path = cl-xkb
+	url = git@github.com:malcolmstill/cl-xkb
+[submodule "cl-libinput"]
+	path = cl-libinput
+	url = git@github.com:malcolmstill/cl-libinput
+[submodule "cepl.drm-gbm"]
+	path = cepl.drm-gbm
+	url = git@github.com:malcolmstill/cepl.drm-gbm
+[submodule "ulubis-drm-gbm"]
+	path = ulubis-drm-gbm
+	url = git@github.com:malcolmstill/ulubis-drm-gbm
+[submodule "ulubis-sdl"]
+	path = ulubis-sdl
+	url = git@github.com:malcolmstill/ulubis-sdl
