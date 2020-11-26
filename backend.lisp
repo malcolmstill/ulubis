@@ -27,7 +27,7 @@
 
 (defparameter backend-name nil)
 
-(defgeneric intialise-backend (backend width height devices))
+(defgeneric initialise-backend (backend width height devices))
 (defgeneric process-events (backend))
 (defgeneric register-keyboard-handler (backend keyboard-handler))
 (defgeneric register-mouse-motion-handler (backend mouse-motion-handler))
